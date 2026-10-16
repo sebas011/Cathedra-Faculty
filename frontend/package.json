@@ -1,0 +1,33 @@
+{
+  "name": "scholardesk-v2-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint src",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "node --no-experimental-webstorage node_modules/vitest/vitest.mjs run --config vitest.config.ts --configLoader runner",
+    "test:typecheck": "tsc -p tsconfig.tests.json"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "axe-core": "4.13.0",
+    "eslint": "^10.12.0",
+    "jsdom": "26.1.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^7.1.7",
+    "vitest": "4.1.11"
+  }
+}

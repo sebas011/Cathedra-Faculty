@@ -1,0 +1,36 @@
+@media (min-width: 700px) {
+  .directory-table-card .table-scroll :is(th, td):first-child,
+  .workload-table-card .table-scroll :is(th, td):first-child,
+  .expense-faculty-scroll :is(th, td):first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 170px;
+    background: #fff;
+    box-shadow: 1px 0 #dfe7eb;
+  }
+
+  .directory-table-card .table-scroll th:first-child,
+  .workload-table-card .table-scroll th:first-child,
+  .expense-faculty-scroll th:first-child {
+    z-index: 2;
+    background: #f7faf9;
+  }
+}
+
+@media (min-width: 900px) {
+  .directory-table-card .table-scroll :is(th, td):last-child,
+  .workload-table-card .table-scroll :is(th, td):last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: #fff;
+    box-shadow: -1px 0 #dfe7eb;
+  }
+
+  .directory-table-card .table-scroll th:last-child,
+  .workload-table-card .table-scroll th:last-child {
+    z-index: 2;
+    background: #f7faf9;
+  }
+}

@@ -1,0 +1,13 @@
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff; color: #000; }
+  .sidebar, .topbar, .no-print, .sidebar-scrim, .action-group, .btn, .toolbar { display: none !important; }
+  .workspace { margin-left: 0; }
+  .page { padding: 0; }
+  .hero-card, .data-card, .maintenance-card, .maintenance-status-card, .metric-card { box-shadow: none; border-color: #b8b8b8; break-inside: avoid; }
+  .hero-card { min-height: auto; }
+  .table-scroll { overflow: visible; }
+  table { min-width: 0; font-size: 9pt; }
+  th, td { padding: 6px; }
+  a { color: #000; text-decoration: none; }
+}

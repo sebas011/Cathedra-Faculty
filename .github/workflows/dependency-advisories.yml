@@ -1,0 +1,21 @@
+name: Weekly dependency advisories
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+permissions:
+  contents: read
+jobs:
+  advisories:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix frontend --ignore-scripts
+      - run: npm audit --prefix frontend --audit-level=moderate
+      - run: python desktop/check_dependency_advisories.py

@@ -1,0 +1,23 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import App from "./App";
+import RouteErrorPage from "./pages/RouteErrorPage";
+import "./styles.css";
+import "./record-details.css";
+import "./workspace-polish.css";
+import "./faculty-pages.css";
+import "./expenses.css";
+import "./maintenance.css";
+import "./print.css";
+import "./release-status.css";
+import "./pages/ApprovalRecordPage.css";
+import "./pages/ApprovedWorkloadSummaryPage.css";
+import "./workspace-design.css";
+import "./workspace-sections.css";
+import "./skeleton.css";
+import "./table-usability.css";
+import "./faculty-design-system.css";
+
+const router = createBrowserRouter([{ path: "*", element: <App />, errorElement: <RouteErrorPage /> }]);
+createRoot(document.getElementById("root")!).render(<StrictMode><RouterProvider router={router} /></StrictMode>);
