@@ -25,6 +25,7 @@ from app.models import (
     WorkloadApprovalRevision,
     WorkloadCostSettings,
 )
+from app.services.snapshots import load_approval_snapshot
 from app.teaching_allocations import teaching_allocations
 from app.workload_read import (
     get_workload_cost_settings_record,
@@ -479,14 +480,11 @@ def approved_workload_summary_data(
     college_totals: dict[str, dict[str, float | int | str]] = {}
     allocation_warnings: list[str] = []
     for workload in db.scalars(statement):
-        try:
-            snapshot = json.loads(workload.approval_snapshot or "{}")
-        except json.JSONDecodeError:
-            continue
-        faculty = snapshot.get("faculty") if isinstance(snapshot, dict) else None
-        frozen = snapshot.get("workload") if isinstance(snapshot, dict) else None
-        if not isinstance(faculty, dict) or not isinstance(frozen, dict):
-            continue
+        snapshot = load_approval_snapshot(
+            workload.approval_snapshot, label=f"Workload #{workload.id} approval snapshot"
+        )
+        faculty = snapshot["faculty"]
+        frozen = snapshot["workload"]
         year, snapshot_term = str(frozen.get("academic_year") or ""), str(frozen.get("term") or "")
         snapshot_college = str(faculty.get("college") or "Unassigned")
         if academic_year.strip() and year != academic_year.strip():
@@ -844,7 +842,7 @@ def paged_workloads(
         statement = statement.where(FacultyProfile.college == college.strip())
     total = (
         db.scalar(
-            select(__import__("sqlalchemy").func.count()).select_from(
+            select(func.count()).select_from(
                 statement.with_only_columns(FacultyWorkload.id).order_by(None).subquery()
             )
         )
@@ -1127,7 +1125,9 @@ def workload_approval_history(
             "id": revision.id,
             "approved_by": revision.approved_by,
             "approved_at": revision.approved_at,
-            "snapshot": json.loads(revision.snapshot),
+            "snapshot": load_approval_snapshot(
+                revision.snapshot, label=f"Approval revision #{revision.id}"
+            ),
         }
         for revision in revisions
     ]

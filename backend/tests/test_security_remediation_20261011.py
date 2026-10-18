@@ -269,7 +269,7 @@ def test_direct_startup_private_setup_and_configured_restart(tmp_path, monkeypat
     main.app.dependency_overrides[get_db] = db_session
     credentials = {"username": "direct-owner", "password": "direct-password-123"}
     try:
-        with TestClient(main.app) as client:
+        with TestClient(main.app, base_url="http://127.0.0.1") as client:
             entry = main.app.state.setup_capability.entry_path
             assert "http://127.0.0.1:5175/login#setup-key=" in entry.read_text()
             assert client.post("/api/v1/auth/setup", json=credentials).status_code == 403
@@ -280,7 +280,7 @@ def test_direct_startup_private_setup_and_configured_restart(tmp_path, monkeypat
             )
             assert result.status_code == 201
             assert not entry.exists()
-        with TestClient(main.app) as client:
+        with TestClient(main.app, base_url="http://127.0.0.1") as client:
             assert main.app.state.setup_capability is None
             assert client.get("/api/v1/auth/status").json() == {"setup_required": False}
             assert client.post("/api/v1/auth/login", json=credentials).status_code == 200

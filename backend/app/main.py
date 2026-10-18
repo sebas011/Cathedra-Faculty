@@ -22,6 +22,7 @@ from app.auth import require_admin, require_signed_in
 from app.bootstrap import SetupCapability
 from app.db import DB_PATH, Base, engine
 from app.db import SessionLocal as SessionLocal
+from app.local_host import LocalHostMiddleware
 from app.migrations import run_migrations, validate_migration_history
 from app.models import LocalUser
 from app.product import PRODUCT, PRODUCT_NAME, bind_empty_database
@@ -30,8 +31,6 @@ from app.request_timing import SlowRequestMiddleware
 from app.restore_recovery import recover_interrupted_restore
 from app.security_headers import SecurityHeadersMiddleware
 from app.version import build_identity, release_version
-
-EXPENSES_PROJECTION_ENABLED = True
 
 
 def initialize_database() -> None:
@@ -86,6 +85,7 @@ app.add_middleware(
 )
 app.add_middleware(RestoreGateMiddleware)
 app.add_middleware(SlowRequestMiddleware)
+app.add_middleware(LocalHostMiddleware)
 
 app.add_middleware(SecurityHeadersMiddleware)
 

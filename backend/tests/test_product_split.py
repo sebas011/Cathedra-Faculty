@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 
 import pytest
 from sqlalchemy import create_engine, inspect
@@ -18,7 +19,7 @@ def test_faculty_router_boundaries(client):
 
 
 def test_wrong_product_backup_rejected():
-    with sqlite3.connect(":memory:") as database:
+    with closing(sqlite3.connect(":memory:")) as database, database:
         database.execute("CREATE TABLE cathedra_product (id INTEGER PRIMARY KEY, product TEXT)")
         database.execute("INSERT INTO cathedra_product VALUES (1, 'other-product')")
         with pytest.raises(ValueError, match="different"):
@@ -26,7 +27,7 @@ def test_wrong_product_backup_rejected():
 
 
 def test_unmarked_backup_rejected():
-    with sqlite3.connect(":memory:") as database:
+    with closing(sqlite3.connect(":memory:")) as database, database:
         with pytest.raises(ValueError, match="verified Cathedra Faculty"):
             product.verify_product(database)
 

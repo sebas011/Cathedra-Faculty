@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from app.api import maintenance
@@ -60,14 +61,17 @@ def test_restore_rejects_non_cathedra_and_newer_schema_without_changing_active_d
         },
     ).json()
     foreign = maintenance.BACKUP_DIR / "foreign.db"
-    with sqlite3.connect(foreign) as connection:
+    with closing(sqlite3.connect(foreign)) as connection, connection:
         connection.execute("CREATE TABLE unrelated (id INTEGER PRIMARY KEY)")
     assert (
         client.post("/api/v1/maintenance/restore", json={"filename": foreign.name}).status_code
         == 422
     )
     backup = client.post("/api/v1/maintenance/backups").json()
-    with sqlite3.connect(maintenance.BACKUP_DIR / backup["filename"]) as connection:
+    with (
+        closing(sqlite3.connect(maintenance.BACKUP_DIR / backup["filename"])) as connection,
+        connection,
+    ):
         connection.execute(
             "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
             (MIGRATIONS[-1][0] + 1, "future"),
@@ -99,7 +103,10 @@ def test_restore_rejects_broken_record_links_without_changing_active_data(
         },
     ).json()
     backup = client.post("/api/v1/maintenance/backups").json()
-    with sqlite3.connect(maintenance.BACKUP_DIR / backup["filename"]) as connection:
+    with (
+        closing(sqlite3.connect(maintenance.BACKUP_DIR / backup["filename"])) as connection,
+        connection,
+    ):
         connection.execute(
             "INSERT INTO faculty_no_teaching_confirmations (faculty_id, academic_year, term, confirmed_by) VALUES (?, ?, ?, ?)",
             (999999, "2026-2027", "First Semester", "test-admin"),

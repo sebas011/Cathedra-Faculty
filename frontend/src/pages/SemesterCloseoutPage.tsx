@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { createDatabaseBackup, downloadExport, getActiveProjectionPeriod, getApprovedWorkloadSummary, getCloseoutEstimate, getMaintenanceStatus, getMonthlySalaryProjection, saveCloseoutEstimate } from "../api";
@@ -16,6 +17,7 @@ const validYear = (value:string) => /^\d{4}-\d{4}$/.test(value) && Number(value.
 const validTerm = (value:string|null):value is CloseoutTerm => ["First Semester", "Second Semester", "Summer"].includes(value || "");
 
 export default function SemesterCloseoutPage() {
+  const { confirmAction, actionDialog } = useActionDialog();
   const [params] = useSearchParams();
   const [year, setYear] = useState("");
   const [term, setTerm] = useState<CloseoutTerm>("First Semester");
@@ -78,7 +80,7 @@ export default function SemesterCloseoutPage() {
   const capture = async () => {
     if (!data || !scopeMatches || data.estimate) return;
     const warningText = data.projection.warnings.length ? ` ${data.projection.warnings.length} coverage warnings will be retained.` : "";
-    if (!window.confirm(`Save the planning estimate for ${data.scope.year} ${data.scope.term} as its permanent closeout record? Status is assessed as of ${data.scope.asOf}. This includes current planning workloads, including drafts.${warningText}`)) return;
+    if (!await confirmAction(`Save the planning estimate for ${data.scope.year} ${data.scope.term} as its permanent closeout record? Status is assessed as of ${data.scope.asOf}. This includes current planning workloads, including drafts.${warningText}`, "Save closeout estimate?", "Save closeout estimate")) return;
     setBusy(true);
     setError("");
     try {
@@ -102,7 +104,7 @@ export default function SemesterCloseoutPage() {
     finally { setBusy(false); }
   };
 
-  return <div className="stack-md">
+  return <div className="stack-md">{actionDialog}
     <section className="hero-card compact"><div><span className="eyebrow">SEMESTER CLOSEOUT</span><h1>Prepare a term for closeout</h1><p>Review approvals, capture the planning estimate, and prepare your archive.</p></div><button className="btn secondary no-print" disabled={loading || busy} onClick={load}>Refresh</button></section>
     {error && <div className="notice error" role="alert">{error}</div>}
     {notice && <div className="notice success" role="status">{notice}</div>}

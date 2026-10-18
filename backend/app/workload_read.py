@@ -1,10 +1,10 @@
-import json
-
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session, selectinload
 
 from app.activity_audit import add_activity
+from app.compensation_rules import regular_hours_for_preparations, salary_based_overload_rate
 from app.models import FacultyProfile, FacultyWorkload, WorkloadCostSettings
+from app.services.snapshots import load_approval_snapshot
 from app.workload_schemas import FacultyWorkloadRead, TeachingAssignmentRead
 
 
@@ -60,7 +60,7 @@ def calculate_teaching_cost(
         elif workload.professional_qualification == "Lawyer":
             hourly_rate += settings.external_lawyer_increment
         return category, hourly_rate, total_weekly_hours * hourly_rate
-    hourly_rate = (faculty.monthly_salary or 0) * 12 * 0.000781
+    hourly_rate = salary_based_overload_rate(faculty.monthly_salary or 0)
     return category, hourly_rate, overload_weekly_hours * hourly_rate
 
 
@@ -81,7 +81,7 @@ def read_workload(
     total_lecture_hours = sum(item.lecture_hours for item in assignments)
     total_laboratory_hours = sum(item.laboratory_hours for item in assignments)
     preparation_count = len({item.course_code.strip().casefold() for item in assignments})
-    regular_weekly_hours = 21 if preparation_count <= 2 else 18
+    regular_weekly_hours = regular_hours_for_preparations(preparation_count)
     total_weekly_hours = total_lecture_hours + total_laboratory_hours
     calculated_overload_hours = max(total_weekly_hours - regular_weekly_hours, 0)
     overload_weekly_hours = (
@@ -97,10 +97,9 @@ def read_workload(
     projection_weeks = weeks_for_term(workload.term, settings)
     approval_snapshot = None
     if workload.approval_snapshot:
-        try:
-            approval_snapshot = json.loads(workload.approval_snapshot)
-        except json.JSONDecodeError:
-            approval_snapshot = None
+        approval_snapshot = load_approval_snapshot(
+            workload.approval_snapshot, label=f"Workload #{workload.id} approval snapshot"
+        )
     return FacultyWorkloadRead(
         imported_overload_hours=workload.imported_overload_hours,
         calculated_overload_hours=calculated_overload_hours,
@@ -139,7 +138,7 @@ def read_workload(
         regular_weekly_hours=regular_weekly_hours,
         overload_weekly_hours=overload_weekly_hours,
         estimated_overload_pay_weekly=overload_weekly_hours
-        * ((faculty.monthly_salary or 0) * 12 * 0.000781),
+        * (salary_based_overload_rate(faculty.monthly_salary or 0)),
         compensation_hourly_rate=compensation_hourly_rate,
         estimated_teaching_pay_weekly=estimated_teaching_pay_weekly,
         projection_weeks=projection_weeks,

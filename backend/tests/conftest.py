@@ -47,7 +47,7 @@ def client() -> Generator[TestClient, None, None]:
     main.SessionLocal = TestingSession
     main.initialize_database = lambda: None
     try:
-        with TestClient(app) as test_client:
+        with TestClient(app, base_url="http://127.0.0.1") as test_client:
             entry = app.state.setup_capability.entry_path.read_text(encoding="utf-8")
             setup_key = re.search(r"#setup-key=([A-Za-z0-9_-]{43})", entry).group(1)
             setup = test_client.post(
@@ -63,3 +63,4 @@ def client() -> Generator[TestClient, None, None]:
         main.initialize_database = original_initialize_database
         app.dependency_overrides.clear()
         Base.metadata.drop_all(bind=engine)
+        engine.dispose()

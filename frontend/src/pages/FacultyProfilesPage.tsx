@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { useDirectoryValue, useDirectoryScroll } from "../hooks/useDirectoryMemory";
 import FormError from "../components/FormError";
 import { SkeletonTableRows } from "../components/PageSkeleton";
@@ -16,6 +17,7 @@ const departments = ["CAS", "COEd", "CBMA", "COE", "COF", "CIT", "CCS", "CCJ"] a
 
 const blankProfile = (): FacultyProfilePayload => ({ name: "", rank: "", employment_status: "Full-time", salary_grade: "", salary_step: 1, monthly_salary: null, campus: null, college: "CAS", department: "", service_status: "Active", service_status_effective_date: null, item_number: null, bachelors_degree: null, masters_degree: null, doctoral_degree: null, eligibility: null, remarks: null });
 export default function FacultyProfilesPage() {
+  const { confirmAction, actionDialog } = useActionDialog();
   const isAdmin = getCurrentUser()?.role === "admin";
   const { confirmDiscard: requestDiscard, discardDialog } = useDiscardConfirmation();
   const [profiles, setProfiles] = useState<FacultyProfile[]>([]);
@@ -25,6 +27,9 @@ export default function FacultyProfilesPage() {
   const [form, setForm] = useState<FacultyProfilePayload>(blankProfile);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const fieldAttributes = (field: string) => ({ "aria-invalid": fieldErrors[field] ? true as const : undefined, "aria-describedby": fieldErrors[field] ? `faculty-${field}-error` : undefined });
+  const fieldError = (field: string) => fieldErrors[field] && <span id={`faculty-${field}-error`} className="field-error">{fieldErrors[field]}</span>;
   const [saving, setSaving] = useState(false);
   const savePending = useRef(false);
   const [page, setPage] = useDirectoryValue<number>("faculty:page", 1); const [total, setTotal] = useState(0);
@@ -62,13 +67,15 @@ export default function FacultyProfilesPage() {
     resetBaseline(null);
     setIsEditorOpen(false);
     setForm(blankProfile());
+    setFieldErrors({});
   };
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
     if (savePending.current) return;
-    const missing = [["Name", form.name], ["Rank", form.rank], ["Program", form.department]].filter(([, value]) => !value.trim());
-    if (missing.length) { setError(missing.map(([label]) => `${label}: enter a value.`).join("; ")); return; }
+    const missing = [["name", "Name", form.name], ["rank", "Rank", form.rank], ["department", "Program", form.department]].filter(([, , value]) => !value.trim());
+    setFieldErrors(Object.fromEntries(missing.map(([field, label]) => [field, `${label}: enter a value.`])));
+    if (missing.length) { setError("Check the highlighted faculty fields."); return; }
     savePending.current = true;
     setSaving(true);
     try {
@@ -85,7 +92,7 @@ export default function FacultyProfilesPage() {
   };
 
   const removeProfile = async (profile: FacultyProfile) => {
-    if (!confirm(`Delete ${profile.name}?`)) return;
+    if (!await confirmAction(`Delete ${profile.name}?`, "Delete faculty profile?", "Delete profile")) return;
     try {
       setError("");
       await deleteFacultyProfile(profile.id, profile.revision);
@@ -101,14 +108,14 @@ export default function FacultyProfilesPage() {
   const updateRank = (rank: string) => setForm((current) => ({ ...current, rank, salary_grade: salaryScale?.rank_mappings.find((item) => item.rank.toLocaleLowerCase() === rank.trim().toLocaleLowerCase())?.salary_grade || current.salary_grade }));
 
   return (
-    <div className="stack-md faculty-directory-page"><UnsavedChangesDialog blocker={blocker} />{discardDialog}
+    <div className="stack-md faculty-directory-page"><UnsavedChangesDialog blocker={blocker} />{discardDialog}{actionDialog}
       <section className="hero-card compact">
         <div>
           <span className="eyebrow">FACULTY DIRECTORY</span>
           <h1>Faculty Profiles</h1>
           <p>Keep faculty ranks, departments, and programs in one directory.</p>
         </div>
-        {isAdmin && <button className="btn primary" type="button" disabled={saving} onClick={async () => { if (!(await confirmDiscard())) return; resetBaseline(blankProfile()); setForm(blankProfile()); setIsEditorOpen(true); }}>Add Faculty</button>}
+        {isAdmin && <button className="btn primary" type="button" disabled={saving} onClick={async () => { if (!(await confirmDiscard())) return; resetBaseline(blankProfile()); setForm(blankProfile()); setFieldErrors({}); setIsEditorOpen(true); }}>Add Faculty</button>}
       </section>
 
       {isEditorOpen ? <FormError message={error} /> : error && <div className="notice error" role="alert">{error}</div>}
@@ -117,8 +124,8 @@ export default function FacultyProfilesPage() {
         <form onSubmit={saveProfile} className="form-card faculty-editor">
           <div className="form-card-head"><span>NEW</span><div><h2>New faculty profile</h2><p>Enter the faculty member’s current appointment details.</p></div></div>
           <div className="form-grid three">
-            <label className="span-2">Name *<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-            <label>Rank / position *<input required list="academic-ranks" value={form.rank} onChange={(event) => updateRank(event.target.value)} /><datalist id="academic-ranks">{salaryScale?.rank_mappings.map((item) => <option key={item.rank} value={item.rank} />)}</datalist></label>
+            <label className="span-2">Name *<input required {...fieldAttributes("name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />{fieldError("name")}</label>
+            <label>Rank / position *<input required {...fieldAttributes("rank")} list="academic-ranks" value={form.rank} onChange={(event) => updateRank(event.target.value)} />{fieldError("rank")}<datalist id="academic-ranks">{salaryScale?.rank_mappings.map((item) => <option key={item.rank} value={item.rank} />)}</datalist></label>
             <label>Employment status<select value={form.employment_status} onChange={(event) => setForm({ ...form, employment_status: event.target.value as FacultyProfilePayload["employment_status"] })}><option>Full-time</option><option>Part-time</option></select></label>
             <label>Faculty status<select value={form.service_status} onChange={(event) => setForm({ ...form, service_status: event.target.value as FacultyProfilePayload["service_status"], service_status_effective_date: null })}><option>Active</option><option>Inactive</option><option>Retired</option><option>Resigned</option><option>To verify</option></select></label>
             {["Inactive", "Retired", "Resigned"].includes(form.service_status) && <label>Status effective date<input type="date" required value={form.service_status_effective_date || ""} onChange={event => setForm({ ...form, service_status_effective_date: event.target.value || null })} /></label>}
@@ -127,7 +134,7 @@ export default function FacultyProfilesPage() {
             <label>Official monthly salary<input readOnly value={selectedSalary != null ? `₱${selectedSalary.toLocaleString("en-PH", { minimumFractionDigits: 2 })}` : "Select a salary grade and step"} /></label>
             <label>Campus<input maxLength={80} list="faculty-campuses" value={form.campus || ""} onChange={(event) => setForm({ ...form, campus: event.target.value || null })} /><datalist id="faculty-campuses">{["Talisay", "Alijis", "Fortune Towne", "Binalbagan"].map((campus) => <option key={campus} value={campus} />)}</datalist></label>
             <label>Department<select value={form.college} onChange={(event) => setForm({ ...form, college: event.target.value as FacultyProfilePayload["college"] })}>{departments.map((department) => <option key={department}>{department}</option>)}</select></label>
-            <FacultyProgramField className="span-3" department={form.college} value={form.department} onChange={program => setForm({ ...form, department: program })} required />
+            <FacultyProgramField className="span-3" department={form.college} value={form.department} onChange={program => setForm({ ...form, department: program })} required error={fieldErrors.department} />
             <label>Item number<input maxLength={100} value={form.item_number || ""} onChange={event => setForm({ ...form, item_number: event.target.value || null })} /></label>
             <label>Bachelor’s degree<input maxLength={300} value={form.bachelors_degree || ""} onChange={event => setForm({ ...form, bachelors_degree: event.target.value || null })} /></label>
             <label>Master’s degree<input maxLength={300} value={form.masters_degree || ""} onChange={event => setForm({ ...form, masters_degree: event.target.value || null })} /></label>

@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { useDirectoryValue, useDirectoryScroll } from "../hooks/useDirectoryMemory";
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
@@ -54,6 +55,7 @@ function getEstimatedTeachingPay(record: FacultyWorkload) {
 
 
 export default function WorkloadPage() {
+  const { confirmAction, requestInput, actionDialog } = useActionDialog();
   const [params] = useSearchParams();
   const view = ["records","review"].includes(params.get("view") || "") ? params.get("view") : "records";
   const canDelete = getCurrentUser()?.role === "admin";
@@ -109,7 +111,7 @@ export default function WorkloadPage() {
   useEffect(() => { void load(); return () => { requestId.current += 1; }; }, [debouncedSearch, academicYear, term, college, page, view]);
 
   const removeRecord = async (record: FacultyWorkload) => {
-    if (!confirm(`Delete the workload for ${record.faculty_name}?`)) return;
+    if (!await confirmAction(`Delete the workload for ${record.faculty_name}?`, "Delete workload?", "Delete workload")) return;
     try {
       setError("");
       await deleteWorkload(record.id, record.revision);
@@ -125,7 +127,7 @@ export default function WorkloadPage() {
       if (action === "review") await reviewWorkload(record.id, record.revision);
       if (action === "approve") await approveWorkload(record.id, record.revision);
       if (action === "reopen") {
-        const reason = window.prompt("Why is this workload being reopened?");
+        const reason = await requestInput("Reopening allows changes to this workload. The reason will be retained in its history.", "Reopen workload?", "Reopen workload", "Reason for reopening");
         if (!reason) return;
         await reopenWorkload(record.id, reason, record.revision);
       }
@@ -150,7 +152,7 @@ export default function WorkloadPage() {
   if (params.get("view") === "costs") return <Navigate to="/expenses" replace />;
   if (params.get("view") === "rules") return <Navigate to="/compensation-rules" replace />;
   return (
-    <div className="stack-md workload-page">
+    <div className="stack-md workload-page">{actionDialog}
       <section className="hero-card compact"><div><span className="eyebrow">FACULTY WORKLOAD</span><h1>Weekly Teaching Loads</h1></div><div className="action-group"><Link className="btn secondary" to="/workload/approved-summary">Approved Summary</Link><Link className="btn primary" to="/workload/new">Add Workload</Link></div></section>
       <SectionNav label="Workload views" items={[{ value: "records", label: "Workload records" }, { value: "review", label: "Data checks" }]} />
       <section className="data-card"><div className="section-heading"><div><h2>Filter workloads</h2></div></div>

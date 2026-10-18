@@ -24,7 +24,7 @@ Use Python 3.14 and Node.js 24. From the repository root:
 
 ```powershell
 python -m venv backend/.venv
-backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt -r desktop/requirements-build.txt -c backend/constraints-win-py314.txt
+backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt -r desktop/requirements-build.txt -c backend/constraints-win-py314.txt
 npm ci --prefix frontend
 ```
 

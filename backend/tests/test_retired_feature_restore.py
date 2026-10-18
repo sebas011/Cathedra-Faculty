@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 
 from app.api import maintenance
 
@@ -8,7 +9,7 @@ def test_legacy_empty_tables_restore_without_recreating_retired_feature(
 ):
     monkeypatch.setattr(maintenance, "BACKUP_DIR", tmp_path / "backups")
     filename = client.post("/api/v1/maintenance/backups").json()["filename"]
-    with sqlite3.connect(maintenance.BACKUP_DIR / filename) as database:
+    with closing(sqlite3.connect(maintenance.BACKUP_DIR / filename)) as database, database:
         database.execute("DELETE FROM schema_migrations WHERE version=21")
         database.execute("CREATE TABLE scholars (id INTEGER PRIMARY KEY)")
     response = client.post("/api/v1/maintenance/restore", json={"filename": filename})
@@ -24,7 +25,7 @@ def test_legacy_empty_tables_restore_without_recreating_retired_feature(
     assert client.get("/api/v1/faculty-profiles").status_code == 200
     assert client.get("/api/v1/fsdp").status_code == 404
     next_backup = client.post("/api/v1/maintenance/backups").json()["filename"]
-    with sqlite3.connect(maintenance.BACKUP_DIR / next_backup) as database:
+    with closing(sqlite3.connect(maintenance.BACKUP_DIR / next_backup)) as database, database:
         assert (
             database.execute("SELECT name FROM sqlite_master WHERE name='scholars'").fetchone()
             is None
@@ -36,7 +37,7 @@ def test_populated_retired_tables_block_restore_without_changing_current_data(
 ):
     monkeypatch.setattr(maintenance, "BACKUP_DIR", tmp_path / "backups")
     filename = client.post("/api/v1/maintenance/backups").json()["filename"]
-    with sqlite3.connect(maintenance.BACKUP_DIR / filename) as database:
+    with closing(sqlite3.connect(maintenance.BACKUP_DIR / filename)) as database, database:
         database.execute("DELETE FROM schema_migrations WHERE version=21")
         database.execute("CREATE TABLE scholars (id INTEGER PRIMARY KEY)")
         database.execute("INSERT INTO scholars VALUES(7)")

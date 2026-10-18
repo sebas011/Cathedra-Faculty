@@ -21,7 +21,9 @@ def request(base, path, token="", payload=None):
     if token:
         headers["Authorization"] = f"Bearer {token}"
     data = None if payload is None else json.dumps(payload).encode("utf-8")
-    with urllib.request.urlopen(urllib.request.Request(base + path, data=data, headers=headers), timeout=30) as response:
+    with urllib.request.urlopen(
+        urllib.request.Request(base + path, data=data, headers=headers), timeout=30
+    ) as response:
         return json.load(response)
 
 
@@ -47,29 +49,38 @@ def capture(application: Path, source: Path, directory: Path):
     )
     token = ""
     try:
-        for attempt in range(120):
+        for _attempt in range(120):
             try:
                 request(base, "/health")
                 break
-            except (OSError, ValueError):
+            except (OSError, ValueError) as caught:
                 if process.poll() is not None:
-                    raise RuntimeError("Isolated application exited before readiness.")
+                    raise RuntimeError("Isolated application exited before readiness.") from caught
                 time.sleep(0.25)
         else:
             raise TimeoutError("Isolated application did not become ready.")
-        token = request(base, "/auth/login", payload={
-            "username": "isolated-comparison", "password": password,
-        })["token"]
+        token = request(
+            base,
+            "/auth/login",
+            payload={
+                "username": "isolated-comparison",
+                "password": password,
+            },
+        )["token"]
         paths = (
-            "/faculty-profiles/page", "/workloads/page", "/workloads/summary",
-            "/expenses/active-period", "/expenses/overload-budgets",
+            "/faculty-profiles/page",
+            "/workloads/page",
+            "/workloads/summary",
+            "/expenses/active-period",
+            "/expenses/overload-budgets",
         )
         responses = {path: request(base, path, token) for path in paths}
         period = responses["/expenses/active-period"]
         projection_path = (
             "/expenses/monthly-projection?period=semester&academic_year="
             + urllib.parse.quote(period["academic_year"])
-            + "&term=" + urllib.parse.quote(period["term"])
+            + "&term="
+            + urllib.parse.quote(period["term"])
         )
         responses["projection"] = request(base, projection_path, token)
         return responses
@@ -106,6 +117,8 @@ if __name__ == "__main__":
     previous = capture(args.old_app, args.source, args.rehearsal_root / "previous")
     current = capture(args.new_app, args.source, args.rehearsal_root / "current")
     if normalize(previous) != normalize(current):
-        differences = [key for key in previous if normalize(previous[key]) != normalize(current[key])]
+        differences = [
+            key for key in previous if normalize(previous[key]) != normalize(current[key])
+        ]
         raise RuntimeError("Faculty responses changed: " + ", ".join(differences))
     print(json.dumps({"matched_responses": list(current), "calculations_unchanged": True}))

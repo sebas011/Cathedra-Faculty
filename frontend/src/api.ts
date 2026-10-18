@@ -1,5 +1,4 @@
-import { apiErrorMessage } from "./apiErrors";
-import { API, getSessionToken, request, timedFetch } from "./api/client";
+import { downloadFile, request } from "./api/client";
 export { clearSession, getCurrentUser, getSessionToken, releaseVersion, saveSession } from "./api/client";
 export * from "./api/workloads";
 export * from "./api/facultyProfiles";
@@ -16,7 +15,9 @@ export const revokeUserSessions = (id:number) => request<void>(`/auth/users/${id
 export const getMaintenanceStatus = () => request<MaintenanceStatus>("/maintenance/status"); export const createDatabaseBackup = () => request<BackupResult>("/maintenance/backups", { method: "POST" }); export const restoreDatabase = (filename:string) => request<{restored_from:string;safety_backup:string}>("/maintenance/restore", {method:"POST",body:JSON.stringify({filename})});
 export const deleteDatabaseBackup = (filename:string) => request<void>(`/maintenance/backups/${encodeURIComponent(filename)}`, {method:"DELETE"});
 export const setBackupProtection = (filename:string, protect:boolean) => request<void>(`/maintenance/backups/${encodeURIComponent(filename)}/protection`, {method:protect?"POST":"DELETE"});
-export async function downloadDatabaseBackup(filename: string) { const session=getSessionToken(); const token=session?JSON.parse(session).token as string:""; let response:Response; try { response=await timedFetch(`${API}/maintenance/backups/${encodeURIComponent(filename)}/download`,{headers:token?{Authorization:`Bearer ${token}`}:{}}); } catch { throw new Error("Cathedra could not reach the local service. Retry the backup download."); } if(!response.ok){ const body=await response.json().catch(()=>null); throw new Error(apiErrorMessage(body?.detail,response.status)); } const url=URL.createObjectURL(await response.blob()); const link=document.createElement("a"); link.href=url; link.download=filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
+export const downloadDatabaseBackup = (filename: string) =>
+  downloadFile(`/maintenance/backups/${encodeURIComponent(filename)}/download`, filename);
+
 export const getVerificationQueue = (area = "All", search = "", page = 1) => request<VerificationQueue>(`/verification?${new URLSearchParams({ area, search, page: String(page), page_size: "50" })}`);
 export const getActivity = () => request<ActivityEvent[]>("/activity");
 export const checkDatabaseIntegrity = () => request<{status:string;checked_at:string}>("/maintenance/integrity-check", {method:"POST"});
@@ -25,11 +26,10 @@ export const getActivityPage = (filters: {search:string;date_from:string;date_to
   Object.entries(filters).forEach(([key,value]) => { if(value) query.set(key,value); });
   return request<{items:ActivityEvent[];total:number;page:number;page_size:number}>(`/activity/page?${query}`);
 };
-export async function downloadActivity(filters: {search:string;date_from:string;date_to:string}) {
-  const query=new URLSearchParams(); Object.entries(filters).forEach(([key,value])=>{if(value)query.set(key,value)});
-  const session=getSessionToken(); const token=session?JSON.parse(session).token as string:"";
-  const response=await timedFetch(`${API}/activity/export.csv?${query}`,{headers:token?{Authorization:`Bearer ${token}`}:{}});
-  if(!response.ok){const body=await response.json().catch(()=>null);throw new Error(apiErrorMessage(body?.detail,response.status));}
-  const url=URL.createObjectURL(await response.blob());const link=document.createElement("a");link.href=url;link.download="cathedra-activity.csv";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+export function downloadActivity(filters: { search: string; date_from: string; date_to: string }) {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });
+  return downloadFile(`/activity/export.csv?${query}`, "cathedra-activity.csv");
 }
-export async function downloadExport(kind: "faculty-profiles" | "workloads", filename: string) { const session = getSessionToken(); const token = session ? JSON.parse(session).token as string : ""; const response = await timedFetch(`${API}/maintenance/exports/${kind}.csv`, {headers: token ? {Authorization:`Bearer ${token}`} : {}}); if (!response.ok) { const body = await response.json().catch(() => ({ detail: "Unable to export CSV." })); throw new Error(typeof body.detail === "string" ? body.detail : "Unable to export CSV."); } const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
+export const downloadExport = (kind: "faculty-profiles" | "workloads", filename: string) =>
+  downloadFile(`/maintenance/exports/${kind}.csv`, filename);

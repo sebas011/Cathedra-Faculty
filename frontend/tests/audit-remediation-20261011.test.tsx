@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import axe from "axe-core";
 import LoginPage from "../src/pages/LoginPage";
 import FacultyProfilesPage from "../src/pages/FacultyProfilesPage";
 import AdminAccess from "../src/components/AdminAccess";
@@ -87,4 +88,23 @@ test("repeated faculty submits send one request while saving and permit retry af
   fireEvent.submit(form);
   await waitFor(() => expect(api.createFacultyProfile).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.queryByRole("heading", { name: "New faculty profile" })).toBeNull());
+});
+
+test("faculty whitespace validation identifies each correction field accessibly", async () => {
+  api.getFacultyProfiles.mockResolvedValue({ items: [], total: 0, summary: {} });
+  api.getSalaryScale.mockResolvedValue({ grades: [], rank_mappings: [] });
+  openPage(<FacultyProfilesPage />);
+  await screen.findByText("No faculty profiles found.");
+  fireEvent.click(screen.getByRole("button", { name: "Add Faculty" }));
+  const fields = [await screen.findByLabelText("Name *"), screen.getByLabelText("Rank / position *"), screen.getByLabelText("Program *")];
+  fields.forEach(field => fireEvent.change(field, { target: { value: "   " } }));
+  const form = fields[0].closest("form")!;
+  fireEvent.submit(form);
+  expect(api.createFacultyProfile).not.toHaveBeenCalled();
+  fields.forEach(field => {
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById(field.getAttribute("aria-describedby")!)?.textContent).toContain("enter a value");
+  });
+  const result = await axe.run(form, { rules: { "color-contrast": { enabled: false } } });
+  expect(result.violations.map(item => item.id)).toEqual([]);
 });

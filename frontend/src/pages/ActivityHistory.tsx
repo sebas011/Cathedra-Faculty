@@ -32,7 +32,7 @@ export default function ActivityHistory() {
     finally{setExporting(false);}
   };
   return <div className="stack-md">
-    <section className="hero-card compact"><div><span className="eyebrow">ADMINISTRATION</span><h1>Activity History</h1><p>Review saved record and account changes across the full recorded history. Backup and restore operations are not included.</p></div><button className="btn secondary" onClick={()=>setRefresh(value=>value+1)} disabled={loading}>Refresh</button></section>
+    <section className="hero-card compact"><div><span className="eyebrow">ADMINISTRATION</span><h1>Activity History</h1><p>Review recorded changes to office records and accounts, sign-in activity, and backup, recovery, and export actions.</p></div><button className="btn secondary" onClick={()=>setRefresh(value=>value+1)} disabled={loading}>Refresh</button></section>
     <form className="form-card" onSubmit={event=>{event.preventDefault();setPage(1);setFilters({...draft});}}>
       <div className="form-grid three"><label>Person, area, or action<input value={draft.search} maxLength={200} onChange={event=>setDraft({...draft,search:event.target.value})}/></label><label>From<input type="date" value={draft.date_from} onChange={event=>setDraft({...draft,date_from:event.target.value})}/></label><label>Through<input type="date" value={draft.date_to} min={draft.date_from||undefined} onChange={event=>setDraft({...draft,date_to:event.target.value})}/></label></div>
       <div className="form-actions"><button className="btn primary" disabled={loading}>Apply filters</button><button type="button" className="btn secondary" disabled={loading||exporting} onClick={()=>void exportHistory()}>{exporting?"Exporting…":"Export filtered history"}</button></div>

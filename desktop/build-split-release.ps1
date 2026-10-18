@@ -23,6 +23,19 @@ Set-Content -LiteralPath (Join-Path $root 'BUILD_ID') -Value "$version-$runIdent
 if (-not $ReleaseRoot) { $ReleaseRoot = Join-Path $PSScriptRoot "release/$version-$runIdentity" }
 if (Test-Path -LiteralPath (Join-Path $ReleaseRoot $name)) { throw 'Choose a new release folder; existing packages are immutable.' }
 $env:CATHEDRA_DATA_DIR = Join-Path $PSScriptRoot "build/test-data-$runIdentity"
+$supportingSources = @((Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.py' -File).FullName)
+$privateTools = Join-Path $root 'tools'
+if (Test-Path -LiteralPath $privateTools -PathType Container) {
+  $supportingSources += @((Get-ChildItem -LiteralPath $privateTools -Filter '*.py' -File).FullName)
+}
+$privateMaintenance = Join-Path $root 'backend/maintenance_target.py'
+if (Test-Path -LiteralPath $privateMaintenance -PathType Leaf) {
+  $supportingSources += $privateMaintenance
+}
+& $Python -m ruff check --config (Join-Path $root 'backend/pyproject.toml') @supportingSources
+if ($LASTEXITCODE -ne 0) { throw 'Desktop and recovery-tool static checks failed.' }
+& $Python -m ruff format --check --config (Join-Path $root 'backend/pyproject.toml') @supportingSources
+if ($LASTEXITCODE -ne 0) { throw 'Desktop and recovery-tool formatting failed.' }
 Push-Location (Join-Path $root 'backend')
 try {
   & $Python -m pytest -q -p no:cacheprovider --basetemp (Join-Path $PSScriptRoot "build/pytest-temp-$runIdentity")

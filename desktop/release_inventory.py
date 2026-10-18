@@ -8,10 +8,16 @@ from pathlib import Path
 def source_snapshot(root: Path) -> str:
     paths = set()
     for folder in ("backend/app", "backend/tests", "frontend/src", "frontend/tests"):
-        paths.update(path for path in (root / folder).rglob("*") if path.is_file() and path.suffix in {".py", ".ts", ".tsx", ".css"})
-    for folder, patterns in (("backend", ("*.py", "*.txt", "*.toml")),
-                             ("frontend", ("*.ts", "*.json", "*.js", "*.html")),
-                             ("desktop", ("*.py", "*.ps1", "*.cmd", "*.txt"))):
+        paths.update(
+            path
+            for path in (root / folder).rglob("*")
+            if path.is_file() and path.suffix in {".py", ".ts", ".tsx", ".css"}
+        )
+    for folder, patterns in (
+        ("backend", ("*.py", "*.txt", "*.toml")),
+        ("frontend", ("*.ts", "*.json", "*.js", "*.html")),
+        ("desktop", ("*.py", "*.ps1", "*.cmd", "*.txt")),
+    ):
         for pattern in patterns:
             paths.update((root / folder).glob(pattern))
     paths.update(root / name for name in ("VERSION", "APP_PRODUCT"))
@@ -39,9 +45,18 @@ def inventory(root: Path, folder: Path):
             relative = path.relative_to(folder).as_posix()
             if relative.startswith("data/"):
                 raise RuntimeError("Office data must not enter the clean release.")
-            files.append({"path": relative, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "bytes": path.stat().st_size})
+            files.append(
+                {
+                    "path": relative,
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "bytes": path.stat().st_size,
+                }
+            )
     packages = sorted(
-        ({"name": distribution.metadata["Name"], "version": distribution.version} for distribution in importlib.metadata.distributions()),
+        (
+            {"name": distribution.metadata["Name"], "version": distribution.version}
+            for distribution in importlib.metadata.distributions()
+        ),
         key=lambda item: item["name"].lower(),
     )
     manifest = {
@@ -51,7 +66,9 @@ def inventory(root: Path, folder: Path):
         "source_snapshot_sha256": source_snapshot(root),
         "python": sys.version.split()[0],
         "backend_packages": packages,
-        "frontend_lock_sha256": hashlib.sha256((root / "frontend" / "package-lock.json").read_bytes()).hexdigest(),
+        "frontend_lock_sha256": hashlib.sha256(
+            (root / "frontend" / "package-lock.json").read_bytes()
+        ).hexdigest(),
         "files": files,
         "signing": "Unsigned; certificate signing is an external release decision.",
     }

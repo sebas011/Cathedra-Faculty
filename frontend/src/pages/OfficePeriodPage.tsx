@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { FormEvent, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { deleteSemesterOverloadBudget, getActiveProjectionPeriod, getCurrentUser, getSemesterOverloadBudgets, saveActiveProjectionPeriod, saveSemesterOverloadBudget } from "../api";
@@ -10,6 +11,7 @@ import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 const peso = (value: number) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
 export default function OfficePeriodPage() {
+  const { confirmAction, actionDialog } = useActionDialog();
   const admin = getCurrentUser()?.role === "admin";
   const { confirmDiscard, discardDialog } = useDiscardConfirmation();
   const [form, setForm] = useState<ActiveProjectionPeriod>({ academic_year: "", term: "First Semester" });
@@ -77,7 +79,7 @@ export default function OfficePeriodPage() {
   };
 
   const removeBudget = async () => {
-    if (!selectedBudget || budgetSaving || !window.confirm(`Remove the overload budget for A.Y. ${selectedBudget.academic_year} ${selectedBudget.term}?`)) return;
+    if (!selectedBudget || budgetSaving || !await confirmAction(`Remove the overload budget for A.Y. ${selectedBudget.academic_year} ${selectedBudget.term}?`, "Remove semester budget?", "Remove budget")) return;
     setBudgetSaving(true); setBudgetError(""); setBudgetNotice("");
     try {
       await deleteSemesterOverloadBudget(selectedBudget.id, selectedBudget.revision ?? 0);
@@ -95,7 +97,7 @@ export default function OfficePeriodPage() {
     setBudgetError(""); setBudgetNotice("");
   };
   if (!admin) return <Navigate to="/settings" replace />;
-  return <div className="stack-md"><UnsavedChangesDialog blocker={blocker} />{discardDialog}
+  return <div className="stack-md"><UnsavedChangesDialog blocker={blocker} />{discardDialog}{actionDialog}
     <section className="hero-card compact"><div><span className="eyebrow">SETTINGS</span><h1>Office reporting period</h1><p>Choose the default semester for shared statistics. No salaries, workloads, or approved records are changed.</p></div></section>
     {error && <div role="alert" className="notice error">{error} <button className="btn secondary" type="button" disabled={saving || dirty} onClick={() => setRevision(value => value + 1)}>Retry loading</button></div>}
     {notice && <div role="status" className="notice">{notice}</div>}

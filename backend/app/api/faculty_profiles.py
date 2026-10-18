@@ -253,6 +253,18 @@ def update_profile(
             status_code=409,
             detail="A faculty profile with this name, department, and program already exists.",
         )
+    if profile.salary_source and (
+        payload.rank != profile.rank
+        or payload.salary_step != profile.salary_step
+        or (
+            grade_for_rank(profile.rank) is None
+            and payload.salary_grade != normalize_grade(profile.salary_grade)
+        )
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="This salary is verified from an office source. Reconcile that source before changing rank, salary grade, or step.",
+        )
     advance_revision(db, FacultyProfile, profile_id, if_match)
     changes = payload.model_dump()
     if user.role != "admin":
@@ -272,7 +284,10 @@ def update_profile(
             )
         }
     elif profile.salary_source:
+        # The grade stored with a verified source may differ from the current rank
+        # mapping. An unrelated profile edit must preserve both it and its salary.
         changes.pop("monthly_salary")
+        changes.pop("salary_grade")
     for field, value in changes.items():
         setattr(profile, field, value)
     db.commit()

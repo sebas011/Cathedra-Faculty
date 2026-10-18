@@ -1,5 +1,6 @@
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from threading import Barrier
 
 import pytest
@@ -71,19 +72,37 @@ def test_maintenance_explicit_current_folder_rejects_wrong_product_schema_and_pa
         bind_empty_database(connection)
         run_migrations(connection)
     engine.dispose()
-    assert validate_target(database) == database.resolve()
-    other = tmp_path / "unrelated.db"
-    other.write_bytes(database.read_bytes())
-    with pytest.raises(ValueError, match="Select the current"):
-        validate_target(other)
-    with sqlite3.connect(database) as connection:
-        connection.execute("UPDATE cathedra_product SET product='other'")
-    with pytest.raises(ValueError, match="verified Cathedra Faculty"):
-        validate_target(database)
-    with sqlite3.connect(database) as connection:
-        connection.execute("UPDATE cathedra_product SET product='faculty'")
-        connection.execute("UPDATE schema_migrations SET name='unsupported' WHERE version=24")
-    before = database.read_bytes()
-    with pytest.raises(ValueError, match="complete migrations"):
-        validate_target(database)
-    assert database.read_bytes() == before
+    original_connect = sqlite3.connect
+    opened = []
+
+    def tracked_connect(*args, **kwargs):
+        connection = original_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", tracked_connect)
+    try:
+        assert validate_target(database) == database.resolve()
+        other = tmp_path / "unrelated.db"
+        other.write_bytes(database.read_bytes())
+        with pytest.raises(ValueError, match="Select the current"):
+            validate_target(other)
+        with closing(sqlite3.connect(database)) as connection, connection:
+            connection.execute("UPDATE cathedra_product SET product='other'")
+        with pytest.raises(ValueError, match="verified Cathedra Faculty"):
+            validate_target(database)
+        with closing(sqlite3.connect(database)) as connection, connection:
+            connection.execute("UPDATE cathedra_product SET product='faculty'")
+            connection.execute("UPDATE schema_migrations SET name='unsupported' WHERE version=24")
+        before = database.read_bytes()
+        with pytest.raises(ValueError, match="complete migrations"):
+            validate_target(database)
+        assert database.read_bytes() == before
+        assert len(opened) == 5
+        # Both successful validation and rejected product/schema paths close.
+        for connection in opened:
+            with pytest.raises(sqlite3.ProgrammingError, match="closed database"):
+                connection.execute("SELECT 1")
+    finally:
+        for connection in opened:
+            connection.close()

@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import useProjectionScope from "../hooks/useProjectionScope";
@@ -30,6 +31,7 @@ const peso = (value: number) =>
 const pageSize = 50;
 
 export default function ExpensesPage({ planning = false }: { planning?: boolean }) {
+  const { confirmAction, actionDialog } = useActionDialog();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const view = ["summary","calculations","checks"].includes(params.get("view") || "") ? params.get("view") : "summary";
@@ -101,7 +103,7 @@ export default function ExpensesPage({ planning = false }: { planning?: boolean 
   };
 
   const captureProjection = async () => {
-    if (!data?.filters.academic_year || !window.confirm("Save this estimate as a permanent planning record? It cannot be edited later.")) return;
+    if (!data?.filters.academic_year || !await confirmAction("Save this estimate as a permanent planning record? It cannot be edited later.", "Save permanent estimate?", "Save estimate")) return;
     setSavingSnapshot(true);
     setError("");
     try {
@@ -141,7 +143,7 @@ export default function ExpensesPage({ planning = false }: { planning?: boolean 
 
   if (accessDenied) {
     return (
-      <div className="stack-md expenses-page">
+      <div className="stack-md expenses-page">{actionDialog}
         <section className="hero-card compact">
           <div>
             <span className="eyebrow">EXPENSES PROJECTION</span>
@@ -154,7 +156,7 @@ export default function ExpensesPage({ planning = false }: { planning?: boolean 
   }
 
   return (
-    <div className="stack-md expenses-page">
+    <div className="stack-md expenses-page">{actionDialog}
       <section className="hero-card compact">
         <div>
           <span className="eyebrow">EXPENSES PROJECTION</span>

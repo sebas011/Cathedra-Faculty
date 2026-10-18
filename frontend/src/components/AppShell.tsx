@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BackupIcon, CalendarIcon, CloseoutIcon, DashboardIcon, DirectoryIcon, ExpenseIcon, HelpIcon, HistoryIcon, LogoutIcon, MenuIcon, ReadinessIcon, ReportsIcon, SettingsIcon, VerificationIcon, WorkloadIcon } from "./Icons";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -28,6 +29,7 @@ const navigationGroups = [
 ];
 
 export default function AppShell() {
+  const { confirmAction, actionDialog } = useActionDialog();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 760px)").matches);
@@ -83,7 +85,7 @@ export default function AppShell() {
     navigate("/login");
   };
   const exitApp = async () => {
-    if (!window.confirm("Exit Cathedra? Finish and save any open changes first.")) return;
+    if (!await confirmAction("Finish and save any open changes before exiting.", "Exit Cathedra?", "Exit Cathedra")) return;
     setExitError("");
     try {
       await exitDesktop();
@@ -95,6 +97,7 @@ export default function AppShell() {
   if (exiting) return <main className="page" role="status"><h1>Cathedra has stopped</h1><p>You can close this window. Reopen Cathedra from its application icon when needed.</p></main>;
   return (
     <div className={`app-layout ${collapsed ? "sidebar-collapsed" : ""}`}>
+      {actionDialog}
       <a className="skip-link" href="#main-content">Skip to page content</a>
       <aside ref={sidebar} id="main-sidebar" inert={mobile && !open} aria-hidden={mobile && !open ? true : undefined} className={`sidebar ${open ? "sidebar-open" : ""}`}>
         <div className="brand">

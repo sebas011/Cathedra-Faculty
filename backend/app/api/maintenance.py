@@ -1,6 +1,7 @@
 import os
 import shutil
 import sqlite3
+from collections.abc import Callable
 from contextlib import closing
 from datetime import datetime
 from io import StringIO
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session, selectinload
 
+from app.activity_audit import add_activity
 from app.auth import require_admin
 from app.csv_export import SafeCsvWriter
 from app.db import DB_PATH, get_db
@@ -23,6 +25,50 @@ from app.restore_recovery import begin_restore, finish_restore
 
 router = APIRouter(prefix="/maintenance", tags=["Backup & Export"])
 BACKUP_DIR = DB_PATH.parent / "backups"
+
+
+def maintenance_activity(db: Session, action: str, operation: str) -> None:
+    """Persist only actor, time and a fixed operation label, never exported data or paths."""
+    try:
+        add_activity(db, "Backup & Export", action, operation=operation)
+        db.commit()
+    except Exception as caught:
+        db.rollback()
+        raise HTTPException(
+            status_code=503, detail="Maintenance activity could not be recorded."
+        ) from caught
+
+
+def audited_file_operation(
+    db: Session, label: str, effect: Callable[[], None], failure_detail: str
+) -> None:
+    # Filesystem changes cannot share a transaction with the activity database.
+    # A committed intent remains evidence even if completion recording fails.
+    maintenance_activity(db, f"Requested {label}", "Requested")
+    try:
+        effect()
+    except Exception as caught:
+        maintenance_activity(db, f"Failed {label}", "Failed")
+        raise HTTPException(status_code=500, detail=failure_detail) from caught
+    try:
+        maintenance_activity(db, f"Completed {label}", "Completed")
+    except HTTPException as caught:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Completed {label}, but completion activity could not be recorded.",
+        ) from caught
+
+
+def restored_activity(target: sqlite3.Connection, username: str) -> None:
+    # Restore replaces both users and activity. The old numeric ID may now belong
+    # to somebody else; retain the captured initiating username without an ID.
+    target.execute(
+        "INSERT INTO activity_events "
+        "(user_id, username, area, action, operation, changed_fields, created_at) "
+        "VALUES (NULL, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        (username, "Backup & Export", "Completed database restore", "Completed", "[]"),
+    )
+    target.commit()
 
 
 def backup_files() -> list[Path]:
@@ -164,13 +210,23 @@ def maintenance_status(db: Session = Depends(get_db)) -> dict[str, object]:
 
 @router.post("/integrity-check")
 def check_database_integrity(db: Session = Depends(get_db), _: LocalUser = Depends(require_admin)):
-    integrity = list(db.execute(text("PRAGMA integrity_check")).scalars())
-    links = db.execute(text("PRAGMA foreign_key_check")).first()
+    maintenance_activity(db, "Requested database integrity check", "Requested")
+    try:
+        integrity = list(db.execute(text("PRAGMA integrity_check")).scalars())
+        links = db.execute(text("PRAGMA foreign_key_check")).first()
+    except Exception as caught:
+        db.rollback()
+        maintenance_activity(db, "Failed database integrity check", "Failed")
+        raise HTTPException(
+            status_code=500, detail="Unable to check database integrity."
+        ) from caught
     if integrity != ["ok"] or links is not None:
+        maintenance_activity(db, "Failed database integrity check", "Failed")
         raise HTTPException(
             status_code=409,
             detail="Database integrity verification failed. Preserve a backup and request recovery assistance.",
         )
+    maintenance_activity(db, "Completed database integrity check", "Completed")
     return {"status": "verified", "checked_at": datetime.now().astimezone().isoformat()}
 
 
@@ -178,15 +234,20 @@ def check_database_integrity(db: Session = Depends(get_db), _: LocalUser = Depen
 def create_database_backup(
     db: Session = Depends(get_db), _: LocalUser = Depends(require_admin)
 ) -> dict[str, object]:
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     destination = BACKUP_DIR / f"cathedra-backup-{timestamp}.db"
 
-    try:
-        make_backup(db.connection().connection.driver_connection, destination)
-    except Exception as caught:
-        destination.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail="Unable to create database backup.") from caught
+    def create() -> None:
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            make_backup(db.connection().connection.driver_connection, destination)
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
+
+    audited_file_operation(
+        db, "database backup creation", create, "Unable to create database backup."
+    )
 
     return {
         "filename": destination.name,
@@ -196,7 +257,9 @@ def create_database_backup(
 
 
 @router.get("/backups/{filename}/download")
-def download_database_backup(filename: str, _: LocalUser = Depends(require_admin)) -> FileResponse:
+def download_database_backup(
+    filename: str, db: Session = Depends(get_db), _: LocalUser = Depends(require_admin)
+) -> FileResponse:
     selected = selected_backup_file(filename)
     try:
         verify_backup_file(selected)
@@ -204,39 +267,59 @@ def download_database_backup(filename: str, _: LocalUser = Depends(require_admin
         raise HTTPException(
             status_code=422, detail="The selected backup could not be verified for download."
         ) from caught
-    return FileResponse(
+    response = FileResponse(
         selected,
         media_type="application/octet-stream",
         filename=selected.name,
         headers={"Cache-Control": "no-store"},
     )
+    maintenance_activity(db, "Prepared database backup download", "Prepared")
+    return response
 
 
 @router.delete("/backups/{filename}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_database_backup(filename: str, _: LocalUser = Depends(require_admin)) -> Response:
+def delete_database_backup(
+    filename: str, db: Session = Depends(get_db), _: LocalUser = Depends(require_admin)
+) -> Response:
     selected = selected_backup_file(filename)
     if filename in protected_backup_names(backup_files()):
         raise HTTPException(
             status_code=409,
             detail="This backup is protected. The newest regular backup and restore safety copies cannot be deleted here.",
         )
-    selected.unlink()
+    audited_file_operation(
+        db, "database backup deletion", selected.unlink, "Unable to delete the selected backup."
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/backups/{filename}/protection", status_code=status.HTTP_204_NO_CONTENT)
-def protect_database_backup(filename: str, _: LocalUser = Depends(require_admin)) -> Response:
+def protect_database_backup(
+    filename: str, db: Session = Depends(get_db), _: LocalUser = Depends(require_admin)
+) -> Response:
     selected = selected_backup_file(filename)
-    backup_pin_path(selected).touch(exist_ok=True)
+    audited_file_operation(
+        db,
+        "database backup protection",
+        lambda: backup_pin_path(selected).touch(exist_ok=True),
+        "Unable to protect the selected backup.",
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/backups/{filename}/protection", status_code=status.HTTP_204_NO_CONTENT)
-def unprotect_database_backup(filename: str, _: LocalUser = Depends(require_admin)) -> Response:
+def unprotect_database_backup(
+    filename: str, db: Session = Depends(get_db), _: LocalUser = Depends(require_admin)
+) -> Response:
     selected = selected_backup_file(filename)
     if selected.name.startswith("cathedra-backup-before-restore-"):
         raise HTTPException(status_code=409, detail="Restore safety backups are always protected.")
-    backup_pin_path(selected).unlink(missing_ok=True)
+    audited_file_operation(
+        db,
+        "database backup unprotection",
+        lambda: backup_pin_path(selected).unlink(missing_ok=True),
+        "Unable to unprotect the selected backup.",
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -250,6 +333,7 @@ def restore_database(
     db: Session = Depends(get_db),
     _: LocalUser = Depends(require_admin),
 ) -> dict[str, object]:
+    restoring_username = _.username
     selected = (BACKUP_DIR / Path(payload.filename).name).resolve()
     if (
         selected.parent != BACKUP_DIR.resolve()
@@ -258,11 +342,12 @@ def restore_database(
     ):
         raise HTTPException(status_code=404, detail="The selected backup is not available.")
     staged = BACKUP_DIR / f".restore-stage-{datetime.now():%Y%m%d-%H%M%S-%f}.db"
+    restore_requested = False
     try:
         with closing(sqlite3.connect(selected)) as source:
             try:
                 verify_product(source)
-            except ValueError as caught:
+            except (ValueError, sqlite3.DatabaseError) as caught:
                 raise HTTPException(status_code=422, detail=str(caught)) from caught
             if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise HTTPException(
@@ -320,25 +405,41 @@ def restore_database(
         pre_restore = (
             BACKUP_DIR / f"cathedra-backup-before-restore-{datetime.now():%Y%m%d-%H%M%S-%f}.db"
         )
-        target = db.connection().connection.driver_connection
-        make_backup(target, pre_restore)
-        begin_restore(DB_PATH, pre_restore)
+        maintenance_activity(db, "Requested database restore", "Requested")
+        restore_requested = True
+        bind = db.get_bind()
+        # End authentication's ORM transaction before replacing the underlying
+        # database. Its stale identity map and final rollback must not touch the
+        # restored audit transaction or attribute it to a restored user ID.
+        db.close()
+        raw_connection = bind.raw_connection()
         try:
-            with closing(sqlite3.connect(staged)) as source:
-                source.backup(target)
-            if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                raise sqlite3.DatabaseError("Restored database failed integrity verification.")
-            if target.execute("PRAGMA foreign_key_check").fetchone() is not None:
-                raise sqlite3.DatabaseError("Restored database has broken record links.")
-            finish_restore(DB_PATH)
-        except Exception:
-            with closing(sqlite3.connect(pre_restore)) as recovery:
-                recovery.backup(target)
-            finish_restore(DB_PATH)
-            raise
+            target = raw_connection.driver_connection
+            make_backup(target, pre_restore)
+            begin_restore(DB_PATH, pre_restore)
+            try:
+                with closing(sqlite3.connect(staged)) as source:
+                    source.backup(target)
+                if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    raise sqlite3.DatabaseError("Restored database failed integrity verification.")
+                if target.execute("PRAGMA foreign_key_check").fetchone() is not None:
+                    raise sqlite3.DatabaseError("Restored database has broken record links.")
+                restored_activity(target, restoring_username)
+                # The recovery marker stays until the completion audit commits.
+                finish_restore(DB_PATH)
+            except Exception:
+                target.rollback()
+                with closing(sqlite3.connect(pre_restore)) as recovery:
+                    recovery.backup(target)
+                finish_restore(DB_PATH)
+                raise
+        finally:
+            raw_connection.close()
     except HTTPException:
         raise
     except Exception as caught:
+        if restore_requested:
+            maintenance_activity(db, "Failed database restore", "Failed")
         raise HTTPException(
             status_code=500, detail="Unable to restore the selected backup."
         ) from caught
@@ -378,7 +479,7 @@ def export_faculty_profiles(db: Session = Depends(get_db)) -> Response:
         ]
         for profile in profiles
     ]
-    return csv_download(
+    response = csv_download(
         "cathedra-faculty-profiles.csv",
         [
             "Faculty ID",
@@ -405,6 +506,8 @@ def export_faculty_profiles(db: Session = Depends(get_db)) -> Response:
         ],
         rows,
     )
+    maintenance_activity(db, "Prepared personnel CSV export", "Prepared")
+    return response
 
 
 @router.get("/exports/workloads.csv")
@@ -445,7 +548,7 @@ def export_workloads(db: Session = Depends(get_db)) -> Response:
                     assignment.lecture_hours + assignment.laboratory_hours,
                 ]
             )
-    return csv_download(
+    response = csv_download(
         "cathedra-workloads.csv",
         [
             "Workload ID",
@@ -467,3 +570,5 @@ def export_workloads(db: Session = Depends(get_db)) -> Response:
         ],
         rows,
     )
+    maintenance_activity(db, "Prepared workload CSV export", "Prepared")
+    return response

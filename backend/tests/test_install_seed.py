@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from app.migrations import MIGRATIONS
@@ -8,7 +9,7 @@ from create_install_seed import PERSONNEL_TABLES, create_install_seed
 def test_installation_seed_has_schema_but_no_office_data(tmp_path: Path) -> None:
     destination = tmp_path / "cathedra-seed.db"
     create_install_seed(destination)
-    with sqlite3.connect(destination) as database:
+    with closing(sqlite3.connect(destination)) as database, database:
         assert database.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert (
             database.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]

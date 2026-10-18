@@ -192,17 +192,20 @@ def test_staff_and_anonymous_cannot_read_or_change_drafts(client):
 
 def test_draft_migration_is_idempotent_and_preserves_data():
     engine = create_engine("sqlite://")
-    with engine.begin() as connection:
-        migrate_qualification_rate_drafts(connection)
-        connection.execute(
-            text(
-                "INSERT INTO qualification_rate_drafts (id, revision, combination_rule, rates_json, updated_by) VALUES (1, 1, 'Unconfirmed', :rates, 'test-admin')"
-            ),
-            {"rates": json.dumps([rate()])},
-        )
-        migrate_qualification_rate_drafts(connection)
-        saved = connection.execute(
-            text("SELECT revision, rates_json FROM qualification_rate_drafts")
-        ).one()
-        assert saved[0] == 1
-        assert json.loads(saved[1]) == [rate()]
+    try:
+        with engine.begin() as connection:
+            migrate_qualification_rate_drafts(connection)
+            connection.execute(
+                text(
+                    "INSERT INTO qualification_rate_drafts (id, revision, combination_rule, rates_json, updated_by) VALUES (1, 1, 'Unconfirmed', :rates, 'test-admin')"
+                ),
+                {"rates": json.dumps([rate()])},
+            )
+            migrate_qualification_rate_drafts(connection)
+            saved = connection.execute(
+                text("SELECT revision, rates_json FROM qualification_rate_drafts")
+            ).one()
+            assert saved[0] == 1
+            assert json.loads(saved[1]) == [rate()]
+    finally:
+        engine.dispose()

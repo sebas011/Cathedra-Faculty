@@ -104,6 +104,7 @@ def test_crashed_process_recovers_before_application_startup(tmp_path: Path) -> 
             "db.execute(\"UPDATE recovery_probe SET value = 'interrupted'\"); db.commit(); db.close(); os._exit(23)",
         ],
         env=environment,
+        cwd=Path(__file__).resolve().parents[1],
         check=False,
         capture_output=True,
         text=True,
@@ -114,12 +115,13 @@ def test_crashed_process_recovers_before_application_startup(tmp_path: Path) -> 
             sys.executable,
             "-c",
             "from fastapi.testclient import TestClient; from app.main import app; "
-            "client = TestClient(app); "
+            "client = TestClient(app, base_url='http://127.0.0.1'); "
             "client.__enter__(); "
             "assert client.get('/api/v1/health').status_code == 200; "
             "client.__exit__(None, None, None); print('started')",
         ],
         env=environment,
+        cwd=Path(__file__).resolve().parents[1],
         check=False,
         capture_output=True,
         text=True,
@@ -138,6 +140,7 @@ def test_import_has_no_database_side_effects(tmp_path: Path) -> None:
     imported = subprocess.run(
         [sys.executable, "-c", "import app.main; print('imported')"],
         env=environment,
+        cwd=Path(__file__).resolve().parents[1],
         check=False,
         capture_output=True,
         text=True,
@@ -151,12 +154,13 @@ def test_import_has_no_database_side_effects(tmp_path: Path) -> None:
             sys.executable,
             "-c",
             "from fastapi.testclient import TestClient; from app.main import app; "
-            "client = TestClient(app); "
+            "client = TestClient(app, base_url='http://127.0.0.1'); "
             "client.__enter__(); "
             "assert client.get('/api/v1/health').status_code == 200; "
             "client.__exit__(None, None, None)",
         ],
         env=environment,
+        cwd=Path(__file__).resolve().parents[1],
         check=False,
         capture_output=True,
         text=True,
@@ -173,9 +177,10 @@ def test_migration_failure_prevents_startup(tmp_path: Path) -> None:
             "-c",
             "from fastapi.testclient import TestClient; import app.main as main; "
             "main.run_migrations = lambda connection: (_ for _ in ()).throw(RuntimeError('migration failed')); "
-            "client = TestClient(main.app); client.__enter__()",
+            "client = TestClient(main.app, base_url='http://127.0.0.1'); client.__enter__()",
         ],
         env=environment,
+        cwd=Path(__file__).resolve().parents[1],
         check=False,
         capture_output=True,
         text=True,

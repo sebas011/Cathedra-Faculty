@@ -15,9 +15,11 @@ from app.product import verify_product
 
 
 def retained_snapshot(database):
-    tables = sorted(row[0] for row in database.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    ) if row[0] not in {*RETIRED_TABLES, "schema_migrations", "sqlite_sequence"})
+    tables = sorted(
+        row[0]
+        for row in database.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        if row[0] not in {*RETIRED_TABLES, "schema_migrations", "sqlite_sequence"}
+    )
     result = {}
     for table in tables:
         rows = database.execute(f'SELECT * FROM "{table}"').fetchall()
@@ -50,9 +52,9 @@ def verify_cleanup(source: Path, destination: Path):
         assert after == before, "Retained records changed during cleanup."
         assert migrated.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert migrated.execute("PRAGMA foreign_key_check").fetchone() is None
-        tables = {row[0] for row in migrated.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )}
+        tables = {
+            row[0] for row in migrated.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         assert not tables.intersection(RETIRED_TABLES)
         version = migrated.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
     return {"schema_version": version, "retained_tables": after, "records_unchanged": True}

@@ -3,6 +3,7 @@
 import argparse
 import ctypes
 import hashlib
+import json
 import os
 import shutil
 import socket
@@ -10,11 +11,9 @@ import subprocess
 import sys
 import threading
 import time
-import json
 import urllib.request
 import webbrowser
 from pathlib import Path
-
 
 _product_file = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1])) / "APP_PRODUCT"
 PRODUCT = "faculty"
@@ -33,7 +32,11 @@ def resource_path(*parts: str) -> Path:
 def writable_data_directory(override: str | None) -> Path:
     if override:
         return Path(override).expanduser().resolve()
-    root = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
+    root = (
+        Path(sys.executable).parent
+        if getattr(sys, "frozen", False)
+        else Path(__file__).resolve().parents[1]
+    )
     return root / "data"
 
 
@@ -66,7 +69,9 @@ def lock_data_directory(data_directory: Path):
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError as caught:
         lock_file.close()
-        raise RuntimeError("This Cathedra data folder is already open in another app process.") from caught
+        raise RuntimeError(
+            "This Cathedra data folder is already open in another app process."
+        ) from caught
     return lock_file
 
 
@@ -84,17 +89,29 @@ def bundled_build_identity() -> str:
 
 def service_is_ready(port: int, expected_version: str, data_directory: Path) -> bool:
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/health", timeout=1) as response:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/api/v1/health", timeout=1
+        ) as response:
             if response.status != 200:
                 return False
             payload = json.loads(response.read().decode("utf-8"))
-            directory_identity = hashlib.sha256(str(data_directory.resolve()).casefold().encode("utf-8")).hexdigest()[:16]
-            return payload.get("status") == "ok" and payload.get("release_version") == expected_version and payload.get("build_identity", "development") == bundled_build_identity() and payload.get("data_directory_identity") == directory_identity and payload.get("product") == PRODUCT
+            directory_identity = hashlib.sha256(
+                str(data_directory.resolve()).casefold().encode("utf-8")
+            ).hexdigest()[:16]
+            return (
+                payload.get("status") == "ok"
+                and payload.get("release_version") == expected_version
+                and payload.get("build_identity", "development") == bundled_build_identity()
+                and payload.get("data_directory_identity") == directory_identity
+                and payload.get("product") == PRODUCT
+            )
     except (OSError, ValueError, json.JSONDecodeError):
         return False
 
 
-def wait_for_service(port: int, expected_version: str, data_directory: Path, timeout_seconds: int = 20) -> bool:
+def wait_for_service(
+    port: int, expected_version: str, data_directory: Path, timeout_seconds: int = 20
+) -> bool:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         if service_is_ready(port, expected_version, data_directory):
@@ -126,14 +143,28 @@ def write_startup_error(message: str) -> None:
 
 def open_app_window(url: str, data_directory: Path | None = None) -> subprocess.Popen | None:
     edge_locations = [
-        Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
-        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+        Path(os.environ.get("PROGRAMFILES", ""))
+        / "Microsoft"
+        / "Edge"
+        / "Application"
+        / "msedge.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", ""))
+        / "Microsoft"
+        / "Edge"
+        / "Application"
+        / "msedge.exe",
     ]
     edge = next((candidate for candidate in edge_locations if candidate.exists()), None)
     if edge:
         arguments = [str(edge), f"--app={url}", "--new-window"]
         if data_directory is not None:
-            arguments.extend([f"--user-data-dir={data_directory / 'edge-profile'}", "--disable-background-mode", "--no-first-run"])
+            arguments.extend(
+                [
+                    f"--user-data-dir={data_directory / 'edge-profile'}",
+                    "--disable-background-mode",
+                    "--no-first-run",
+                ]
+            )
         return subprocess.Popen(arguments)
     else:
         webbrowser.open_new(url)
@@ -158,8 +189,14 @@ def watch_app_window(window: subprocess.Popen, shutdown_signal: threading.Event)
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Launch Cathedra as a local desktop application.")
     parser.add_argument("--data-dir", help="Override the writable Cathedra data folder.")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Local-only port for the Cathedra service.")
-    parser.add_argument("--no-browser", action="store_true", help="Start the local service without opening a window.")
+    parser.add_argument(
+        "--port", type=int, default=DEFAULT_PORT, help="Local-only port for the Cathedra service."
+    )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Start the local service without opening a window.",
+    )
     return parser.parse_args()
 
 
@@ -169,7 +206,9 @@ def main() -> None:
     if getattr(sys, "frozen", False) and os.name == "nt":
         security_script = Path(sys.executable).parent / "desktop" / "protect-local-folder.ps1"
         if not security_script.is_file():
-            raise RuntimeError("The Windows folder-protection tool is missing. Recopy the complete Faculty release.")
+            raise RuntimeError(
+                "The Windows folder-protection tool is missing. Recopy the complete Faculty release."
+            )
         data_directory.mkdir(parents=True, exist_ok=True)
         application_directory = Path(sys.executable).parent.resolve()
         targets = [application_directory]
@@ -179,20 +218,48 @@ def main() -> None:
             ctypes.windll.kernel32.SetDllDirectoryW(None)
             try:
                 result = subprocess.run(
-                    ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(security_script), "-Folder", str(target)],
-                    capture_output=True, stdin=subprocess.DEVNULL,
-                    env={**os.environ, "PSModulePath": str(Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "Modules")},
-                    creationflags=subprocess.CREATE_NO_WINDOW, timeout=120,
+                    [
+                        "powershell.exe",
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        str(security_script),
+                        "-Folder",
+                        str(target),
+                    ],
+                    capture_output=True,
+                    stdin=subprocess.DEVNULL,
+                    env={
+                        **os.environ,
+                        "PSModulePath": str(
+                            Path(os.environ.get("SystemRoot", "C:/Windows"))
+                            / "System32"
+                            / "WindowsPowerShell"
+                            / "v1.0"
+                            / "Modules"
+                        ),
+                    },
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                    timeout=120,
+                    check=False,
                 )
             finally:
                 ctypes.windll.kernel32.SetDllDirectoryW(str(sys._MEIPASS))
             if result.returncode != 0:
-                raise RuntimeError(f"Windows folder protection failed (helper exit {result.returncode}). Run desktop/Prepare-Office-Copy.cmd as the Windows account that will use Faculty.")
+                raise RuntimeError(
+                    f"Windows folder protection failed (helper exit {result.returncode}). Run desktop/Prepare-Office-Copy.cmd as the Windows account that will use Faculty."
+                )
     version = bundled_release_version()
     identity = bundled_build_identity()
     frontend_identity = resource_path("frontend", "dist", "build-id.txt")
-    if identity != "development" and (not frontend_identity.exists() or frontend_identity.read_text(encoding="utf-8").strip() != identity):
-        raise RuntimeError("The application and screen assets belong to different builds. Restore a complete verified release folder.")
+    if identity != "development" and (
+        not frontend_identity.exists()
+        or frontend_identity.read_text(encoding="utf-8").strip() != identity
+    ):
+        raise RuntimeError(
+            "The application and screen assets belong to different builds. Restore a complete verified release folder."
+        )
     os.environ["CATHEDRA_DATA_DIR"] = str(data_directory)
     os.environ["CATHEDRA_PRODUCT"] = PRODUCT
     os.environ["CATHEDRA_FRONTEND_DIST"] = str(resource_path("frontend", "dist"))
@@ -218,6 +285,7 @@ def main() -> None:
     data_lock = lock_data_directory(data_directory)
     prepare_data_directory(data_directory)
     from app.local_logging import configure_local_logging
+
     configure_local_logging(data_directory)
 
     import uvicorn
@@ -244,7 +312,9 @@ def main() -> None:
         entry_url = capability.entry_path.as_uri() if capability is not None else url
         window = open_app_window(entry_url, data_directory)
         if window is not None:
-            threading.Thread(target=watch_app_window, args=(window, shutdown_signal), daemon=True).start()
+            threading.Thread(
+                target=watch_app_window, args=(window, shutdown_signal), daemon=True
+            ).start()
     try:
         shutdown_signal.wait()
     finally:

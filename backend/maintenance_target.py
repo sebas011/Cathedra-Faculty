@@ -2,6 +2,7 @@
 
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from app.migrations import MIGRATIONS
@@ -24,7 +25,10 @@ def validate_target(database: Path, *, allow_rehearsal: bool = False) -> Path:
             "Select the current Cathedra data folder with CATHEDRA_DATA_DIR, or an allowed rehearsal copy."
         )
     # Read-only validation precedes backups, reports and write transactions.
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    with (
+        closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection,
+        connection,
+    ):
         tables = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")

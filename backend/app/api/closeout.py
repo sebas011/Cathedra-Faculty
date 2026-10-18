@@ -7,11 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.expenses import monthly_salary_projection
 from app.auth import require_admin
 from app.db import get_db
-from app.expense_schemas import MonthlySalaryProjectionRead, SavedProjectionRead
+from app.expense_schemas import SavedProjectionRead
 from app.models import LocalUser, SavedProjection, SemesterCloseoutEstimate
+from app.services.projection import build_monthly_projection
+from app.services.snapshots import dump_projection, load_projection
 
 router = APIRouter(prefix="/expenses/closeout-estimates", tags=["Semester Closeout"])
 Term = Literal["First Semester", "Second Semester", "Summer"]
@@ -39,7 +40,7 @@ def read_estimate(record: SavedProjection) -> SavedProjectionRead:
         period=record.period,
         created_by=record.created_by,
         created_at=record.created_at,
-        projection=MonthlySalaryProjectionRead.model_validate_json(record.projection_json),
+        projection=load_projection(record.projection_json, record_id=record.id),
         closeout=True,
     )
 
@@ -85,22 +86,19 @@ def create_closeout_estimate(
             status_code=409, detail="This term already has a saved closeout estimate."
         )
     period = "summer" if payload.term == "Summer" else "semester"
-    projection = monthly_salary_projection(
+    projection = build_monthly_projection(
         db,
-        user,
-        None,
-        None,
-        payload.academic_year,
-        payload.term,
-        period,
-        payload.as_of,
+        academic_year=payload.academic_year,
+        term=payload.term,
+        period=period,
+        as_of=payload.as_of,
     )
     record = SavedProjection(
         academic_year=payload.academic_year,
         term=payload.term,
         period=period,
         created_by=user.username,
-        projection_json=projection.model_dump_json(),
+        projection_json=dump_projection(projection),
     )
     try:
         db.add(record)

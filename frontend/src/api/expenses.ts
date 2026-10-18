@@ -1,4 +1,4 @@
-import { API, getSessionToken, request, timedFetch } from "./client";
+import { downloadFile, request } from "./client";
 import type { MonthlySalaryProjection, ProjectionReadiness, SavedProjection, SavedProjectionSummary } from "../types";
 
 export const getMonthlySalaryProjection = (college = "", employmentStatus = "", academicYear = "", term = "", period: "semester" | "summer" | "yearly" = "yearly", asOf = "") => request<MonthlySalaryProjection>(`/expenses/monthly-projection?${new URLSearchParams({college, employment_status: employmentStatus, academic_year: academicYear, term, period, ...(asOf ? {as_of: asOf} : {})})}`);
@@ -9,7 +9,11 @@ export const getSavedProjection = (id:number) => request<SavedProjection>(`/expe
 export type CloseoutTerm = "First Semester" | "Second Semester" | "Summer";
 export const getCloseoutEstimate = (academicYear:string, term:CloseoutTerm) => request<SavedProjection|null>(`/expenses/closeout-estimates?${new URLSearchParams({academic_year:academicYear,term})}`);
 export const saveCloseoutEstimate = (value:{academic_year:string;term:CloseoutTerm;as_of:string}) => request<SavedProjection>("/expenses/closeout-estimates", {method:"POST",body:JSON.stringify(value)});
-export async function downloadMonthlySalaryProjection(college = "", employmentStatus = "", academicYear = "", term = "", period: "semester" | "summer" | "yearly" = "yearly", asOf = "") { const session = getSessionToken(); const token = session ? JSON.parse(session).token as string : ""; const response = await timedFetch(`${API}/expenses/monthly-projection.csv?${new URLSearchParams({college, employment_status: employmentStatus, academic_year: academicYear, term, period, ...(asOf ? {as_of: asOf} : {})})}`, {headers: token ? {Authorization:`Bearer ${token}`} : {}}); if (!response.ok) { const body = await response.json().catch(() => ({ detail: "Unable to export the expense projection." })); throw new Error(typeof body.detail === "string" ? body.detail : "Unable to export the expense projection."); } const url = URL.createObjectURL(await response.blob()); const link=document.createElement("a"); link.href=url; link.download="cathedra-expenses-projection.csv"; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
+export function downloadMonthlySalaryProjection(college = "", employmentStatus = "", academicYear = "", term = "", period: "semester" | "summer" | "yearly" = "yearly", asOf = "") {
+  const query = new URLSearchParams({ college, employment_status: employmentStatus, academic_year: academicYear, term, period, ...(asOf ? { as_of: asOf } : {}) });
+  return downloadFile(`/expenses/monthly-projection.csv?${query}`, "cathedra-expenses-projection.csv");
+}
+
 export type ActiveProjectionPeriod = { academic_year:string; term:"First Semester"|"Second Semester"; revision?:number };
 export type SemesterOverloadBudget = ActiveProjectionPeriod & { id:number; amount:number };
 export const getActiveProjectionPeriod = () => request<ActiveProjectionPeriod | null>("/expenses/active-period");

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.compensation_rules import regular_hours_for_preparations
 from app.models import FacultyProfile, FacultyWorkload, TeachingAssignment, WorkloadCostSettings
 from app.workload_read import calculate_teaching_cost
 
@@ -54,7 +55,7 @@ def directory_summary(db: Session, filtered, settings: WorkloadCostSettings) -> 
         preparations = row["preparations"] or 0
         overload = row["imported_overload_hours"]
         if overload is None:
-            overload = max(hours - (21 if preparations <= 2 else 18), 0)
+            overload = max(hours - regular_hours_for_preparations(preparations), 0)
         _, _, weekly_pay = calculate_teaching_cost(workload, workload, hours, overload, settings)
         summary["assignments"] += row["assignments"] or 0
         summary["preparations"] += preparations

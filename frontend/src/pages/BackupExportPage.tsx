@@ -1,3 +1,4 @@
+import { useActionDialog } from "../hooks/useActionDialog";
 import { useEffect, useState } from "react";
 import { checkDatabaseIntegrity, clearSession, createDatabaseBackup, deleteDatabaseBackup, downloadDatabaseBackup, downloadExport, getCurrentUser, getMaintenanceStatus, restoreDatabase, setBackupProtection } from "../api";
 import PageSkeleton from "../components/PageSkeleton";
@@ -11,6 +12,7 @@ const exports = [
 ] as const;
 
 export default function BackupExportPage() {
+  const { confirmAction, actionDialog } = useActionDialog();
   const [integrityBusy, setIntegrityBusy] = useState(false);
   const [integrityMessage, setIntegrityMessage] = useState("");
   const verifyIntegrity = async () => { setIntegrityBusy(true); setIntegrityMessage(""); try { const result = await checkDatabaseIntegrity(); setIntegrityMessage(`Integrity and record links verified at ${formatDate(result.checked_at)}.`); } catch (caught) { setIntegrityMessage(caught instanceof Error ? caught.message : "Verification failed."); } finally { setIntegrityBusy(false); } };
@@ -43,7 +45,7 @@ export default function BackupExportPage() {
     finally { setBusy(false); }
   };
   const restore = async () => {
-    if (!selectedBackup || !window.confirm("Restore this backup? Cathedra will first create a safety backup of the current records. All sessions will be signed out.")) return;
+    if (!selectedBackup || !await confirmAction("Restore this backup? Cathedra will first create a safety backup of the current records. All sessions will be signed out.", "Restore backup?", "Restore backup")) return;
     setBusy(true); setNotice(""); setError("");
     try { await restoreDatabase(selectedBackup); clearSession(); window.location.assign("/login"); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to restore the selected backup."); }
@@ -57,7 +59,7 @@ export default function BackupExportPage() {
     finally { setBusy(false); }
   };
   const deleteBackup = async () => {
-    if (!selected || selected.protected !== false || !window.confirm(`Permanently delete ${selected.filename}? This cannot be undone. Keep an off-device copy before removing a local backup.`)) return;
+    if (!selected || selected.protected !== false || !await confirmAction(`Permanently delete ${selected.filename}? This cannot be undone. Keep an off-device copy before removing a local backup.`, "Delete backup permanently?", "Delete backup")) return;
     setBusy(true); setNotice(""); setError("");
     try { await deleteDatabaseBackup(selected.filename); setNotice("The selected older backup was deleted. Protected backups were not changed."); await load(); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to delete the selected backup."); }
@@ -65,7 +67,7 @@ export default function BackupExportPage() {
   };
   const toggleProtection = async () => {
     if (!selected) return;
-    if (selected.pinned && !window.confirm("Remove this backup's manual protection? It may then be deleted by an administrator unless it is the newest backup.")) return;
+    if (selected.pinned && !await confirmAction("Remove this backup's manual protection? It may then be deleted by an administrator unless it is the newest backup.", "Remove backup protection?", "Unpin backup")) return;
     setBusy(true); setNotice(""); setError("");
     try {
       await setBackupProtection(selected.filename, !selected.pinned);
@@ -82,7 +84,7 @@ export default function BackupExportPage() {
   };
 
   if (!status && !error) return <PageSkeleton label="Loading backup and export status" variant="dashboard" />;
-  return <div className="stack-md maintenance-page">
+  return <div className="stack-md maintenance-page">{actionDialog}
     <section className="hero-card compact"><div><span className="eyebrow">SYSTEM MAINTENANCE</span><h1>Backup &amp; Export</h1><p>Review local data, create a safe snapshot, restore a verified backup, or download directory data.</p></div><button className="btn secondary" type="button" onClick={() => void load()}>Refresh status</button></section>
     {error && <div className="notice error" role="alert">{error}</div>}
     {notice && <div className="notice success" role="status">{notice}</div>}

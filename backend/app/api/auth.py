@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select, text, update
@@ -19,7 +21,7 @@ from app.login_throttle import login_throttle
 from app.models import LocalSession, LocalUser
 
 router = APIRouter(prefix="/auth", tags=["Local Accounts"])
-_dummy_password_hash = password_hash("unusable-" + __import__("secrets").token_urlsafe(32))
+_dummy_password_hash = password_hash("unusable-" + secrets.token_urlsafe(32))
 
 
 class Credentials(BaseModel):
@@ -57,6 +59,8 @@ def user_data(user: LocalUser) -> dict[str, object]:
 
 
 def session_data(db: Session, user: LocalUser) -> dict[str, object]:
+    db.info["audit_actor"] = (user.id, user.username)
+    add_activity(db, "Local Accounts", "Signed in", operation="Signed in")
     return {"token": create_session(db, user), "user": user_data(user)}
 
 
@@ -99,21 +103,46 @@ def setup_first_admin(
 def login(
     payload: Credentials, request: Request, db: Session = Depends(get_db)
 ) -> dict[str, object]:
-    login_throttle.check(payload.username, request.client.host if request.client else "local")
-    user = db.scalar(
-        select(LocalUser).where(
-            func.lower(LocalUser.username) == func.lower(payload.username.strip())
+    try:
+        admission = login_throttle.check(
+            payload.username, request.client.host if request.client else "local"
         )
-    )
-    stored = user.password_hash if user else _dummy_password_hash
-    valid = verify_password(payload.password, stored)
-    if user is None or not user.is_active or not valid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Username or password is incorrect."
+    except HTTPException:
+        record_failed_sign_in(db)
+        raise
+    success = failed = False
+    try:
+        user = db.scalar(
+            select(LocalUser).where(
+                func.lower(LocalUser.username) == func.lower(payload.username.strip())
+            )
         )
-    if int(user.password_hash.split("$", 3)[1]) < PASSWORD_ITERATIONS:
-        user.password_hash = password_hash(payload.password)
-    return session_data(db, user)
+        if user is not None:
+            login_throttle.mark_registered(admission)
+        stored = user.password_hash if user else _dummy_password_hash
+        valid = verify_password(payload.password, stored)
+        if user is None or not user.is_active or not valid:
+            failed = True
+            record_failed_sign_in(db)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Username or password is incorrect.",
+            )
+        if int(user.password_hash.split("$", 3)[1]) < PASSWORD_ITERATIONS:
+            user.password_hash = password_hash(payload.password)
+        result = session_data(db, user)
+        success = True
+        return result
+    finally:
+        login_throttle.finish(admission, success=success, failed=failed)
+
+
+def record_failed_sign_in(db: Session) -> None:
+    if login_throttle.allow_failure_diagnostic():
+        # The attempted name is untrusted and is not an authenticated actor.
+        db.info["audit_actor"] = (None, None)
+        add_activity(db, "Local Accounts", "Sign-in rejected", operation="Denied")
+        db.commit()
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -124,6 +153,7 @@ def logout(
 ) -> None:
     token = authorization.removeprefix("Bearer ").strip() if authorization else ""
     db.query(LocalSession).filter(LocalSession.token_hash == token_digest(token)).delete()
+    add_activity(db, "Local Accounts", "Signed out", operation="Signed out")
     db.commit()
 
 
@@ -172,7 +202,7 @@ def change_password(
 ) -> None:
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Your current password is incorrect."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Your current password is incorrect."
         )
     user.password_hash = password_hash(payload.new_password)
     user.must_change_password = False

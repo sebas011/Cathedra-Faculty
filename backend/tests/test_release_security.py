@@ -17,7 +17,8 @@ def test_throttle_normalizes_accounts_expires_and_bounds(monkeypatch):
     monkeypatch.setattr("app.login_throttle.time.monotonic", lambda: clock[0])
     limiter = LoginThrottle(capacity=8)
     for _ in range(8):
-        limiter.check(" ADMIN ", "local")
+        ticket = limiter.check(" ADMIN ", "local")
+        limiter.finish(ticket, failed=True)
     with pytest.raises(HTTPException) as failure:
         limiter.check("admin", "another")
     assert failure.value.status_code == 429
@@ -80,7 +81,7 @@ def test_successful_login_upgrades_legacy_password(client):
         )
 
 
-def test_origin_limit_cannot_be_bypassed_with_different_usernames():
+def test_global_in_flight_limit_cannot_be_bypassed_with_different_usernames():
     limiter = LoginThrottle()
     for index in range(40):
         limiter.check(f"account-{index}", "local")
