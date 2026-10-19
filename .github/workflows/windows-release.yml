@@ -1,0 +1,164 @@
+name: Windows office download
+
+on:
+  push:
+    tags: ['v*-office.*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag, for example v0.3.3-office.1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-office-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.identity.outputs.tag }}
+      version: ${{ steps.identity.outputs.version }}
+      commit: ${{ steps.identity.outputs.commit }}
+      asset: ${{ steps.identity.outputs.asset }}
+    steps:
+      - name: Check release tag format
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+-office\.[1-9]\d*$') {
+            throw 'Choose an existing tag such as v0.3.3-office.1.'
+          }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+          persist-credentials: false
+      - name: Confirm source and application version
+        id: identity
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          if ($env:RELEASE_TAG -notmatch ('^v' + [regex]::Escape($version) + '-office\.[1-9]\d*$')) {
+            throw 'The release tag must match VERSION in the tagged source.'
+          }
+          $commit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw 'Source commit could not be resolved.' }
+          "tag=$env:RELEASE_TAG" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+          "asset=Cathedra-Faculty-$version-Windows-x64.zip" >> $env:GITHUB_OUTPUT
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Install locked backend and build dependencies
+        run: |
+          python -m pip install -r backend/requirements-dev.txt -r desktop/requirements-build.txt -c backend/constraints-win-py314.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Backend dependency installation failed.' }
+      - name: Install locked frontend dependencies
+        run: |
+          npm ci --prefix frontend
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
+      - name: Check dependency advisories
+        run: |
+          npm audit --prefix frontend --audit-level=moderate
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency advisories failed.' }
+          python desktop/check_dependency_advisories.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python dependency advisories failed.' }
+      - name: Run tests, build, and verify the packaged application
+        run: |
+          ./desktop/build-split-release.ps1 -Python (Get-Command python).Source -ReleaseRoot (Join-Path $env:RUNNER_TEMP 'verified-release')
+      - name: Create the clean office download
+        env:
+          SOURCE_COMMIT: ${{ steps.identity.outputs.commit }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+        run: |
+          ./desktop/package-office-release.ps1 -VerifiedReleaseFolder (Join-Path $env:RUNNER_TEMP 'verified-release/Cathedra Faculty') -OutputFolder (Join-Path $env:RUNNER_TEMP 'office-download') -SourceCommit $env:SOURCE_COMMIT -ReleaseTag $env:RELEASE_TAG -Python (Get-Command python).Source
+      - name: Verify fresh installation, safe update, and rollback
+        env:
+          ASSET_NAME: ${{ steps.identity.outputs.asset }}
+        run: |
+          $packageFolder = Join-Path $env:RUNNER_TEMP 'office-installer-smoke'
+          Expand-Archive -LiteralPath (Join-Path $env:RUNNER_TEMP "office-download/$env:ASSET_NAME") -DestinationPath $packageFolder
+          ./desktop/test-office-installer.ps1 -PackageFolder $packageFolder
+      - name: Retain only the verified download files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-office-download
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          path: |
+            ${{ runner.temp }}/office-download/${{ steps.identity.outputs.asset }}
+            ${{ runner.temp }}/office-download/${{ steps.identity.outputs.asset }}.sha256
+            ${{ runner.temp }}/office-download/office-release-manifest.json
+            ${{ runner.temp }}/office-download/OFFICE-READ-ME.txt
+
+  publish:
+    needs: build
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the verified files from this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: windows-office-download
+          path: office-download
+      - name: Verify checksum and publish a new release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.build.outputs.commit }}
+          ASSET_NAME: ${{ needs.build.outputs.asset }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'office-download'
+          $asset = Join-Path $folder $env:ASSET_NAME
+          $checksumFile = "$asset.sha256"
+          $manifestFile = Join-Path $folder 'office-release-manifest.json'
+          $readmeFile = Join-Path $folder 'OFFICE-READ-ME.txt'
+          if (@(Get-ChildItem -LiteralPath $folder -Force).Count -ne 4) { throw 'Unexpected publication files.' }
+          $expected = (Get-Content -LiteralPath $checksumFile -Raw).Trim()
+          $checksum = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -cne "$checksum  $env:ASSET_NAME") { throw 'Download checksum verification failed.' }
+          $manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
+          if ($manifest.product -ne 'faculty' -or $manifest.version -ne $env:RELEASE_VERSION -or $manifest.source_commit -ne $env:SOURCE_COMMIT -or $manifest.release_tag -ne $env:RELEASE_TAG -or $manifest.asset -ne $env:ASSET_NAME) {
+            throw 'Download identity verification failed.'
+          }
+          $tagCommit = gh api "repos/$env:GH_REPO/commits/$env:RELEASE_TAG" --jq '.sha'
+          if ($LASTEXITCODE -ne 0 -or "$tagCommit".Trim() -ne $env:SOURCE_COMMIT) { throw 'The release tag moved after the build.' }
+          $existingTags = gh api --paginate "repos/$env:GH_REPO/releases?per_page=100" --jq '.[].tag_name'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not check for an existing release.' }
+          if (@($existingTags) -contains $env:RELEASE_TAG) { throw 'This release already exists. Choose a new office release tag; published assets are never replaced.' }
+          $notesFile = Join-Path $env:RUNNER_TEMP 'office-release-notes.md'
+          @"
+          Download **$env:ASSET_NAME** below. Extract the entire ZIP, then double-click **Install-or-Update.cmd**. Read **OFFICE-READ-ME.txt** for installation and update instructions.
+
+          The ZIP includes the Windows application and an empty installation database. Python, Node.js, and developer tools are not required on the office computer. Existing office records remain in their separate data folder.
+
+          Application version: $env:RELEASE_VERSION
+          Source commit: $env:SOURCE_COMMIT
+          SHA256: $checksum
+
+          This application is unsigned. Windows may ask you to confirm the download. The SHA256 file and release manifests are provided for verification.
+          "@ | Set-Content -LiteralPath $notesFile -Encoding utf8
+          gh release create $env:RELEASE_TAG $asset $checksumFile $manifestFile $readmeFile --repo $env:GH_REPO --verify-tag --title "Cathedra Faculty $env:RELEASE_VERSION for Windows" --notes-file $notesFile --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed. Existing releases are never overwritten.' }
