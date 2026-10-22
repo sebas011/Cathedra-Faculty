@@ -14,8 +14,10 @@ from app.api.maintenance import maintenance_activity
 from app.auth import require_admin
 from app.db import get_db
 from app.services.google_sheets import (
+    GoogleSheetsDestination,
     GoogleSheetsError,
     GoogleSheetsService,
+    get_google_sheets_destination_service,
     get_google_sheets_service,
 )
 from app.services.sheets_exports import build_google_sheet_tables
@@ -76,6 +78,19 @@ def configure_connection(
     service: GoogleSheetsService = Depends(get_google_sheets_service),
     db: Session = Depends(get_db),
 ):
+    return _configure_connection(payload, service, db)
+
+
+def _activity_label(destination: GoogleSheetsDestination | None) -> str:
+    return {
+        None: "Google Sheets",
+        "workloads": "Faculty workload Google Sheets",
+        "overload": "Overload projection Google Sheets",
+        "profiles": "Faculty profile Google Sheets",
+    }[destination]
+
+
+def _configure_connection(payload, service, db, destination=None):
     credential = (
         payload.service_account_json.get_secret_value()
         if payload.service_account_json is not None
@@ -85,9 +100,10 @@ def configure_connection(
         raise HTTPException(
             status_code=422, detail="Choose a service account JSON key smaller than 64 KiB."
         )
-    maintenance_activity(db, "Requested Google Sheets connection change", "Requested")
+    label = _activity_label(destination)
+    maintenance_activity(db, f"Requested {label} connection change", "Requested")
     result = execute(lambda: service.configure(payload.spreadsheet_url, credential))
-    maintenance_activity(db, "Completed Google Sheets connection change", "Completed")
+    maintenance_activity(db, f"Completed {label} connection change", "Completed")
     return result
 
 
@@ -102,24 +118,33 @@ def update_sheet(
     service: GoogleSheetsService = Depends(get_google_sheets_service),
     db: Session = Depends(get_db),
 ):
-    maintenance_activity(db, "Requested Google Sheets update", "Requested")
+    return _update_sheet(payload, service, db)
+
+
+def _update_sheet(payload, service, db, destination=None):
+    label = _activity_label(destination)
+    maintenance_activity(db, f"Requested {label} update", "Requested")
     try:
         # Python's legacy sqlite transaction mode does not BEGIN on SELECT.
         # Hold one explicit read snapshot, then release it before network IO.
         connection = db.connection()
         if not connection.connection.driver_connection.in_transaction:
             connection.exec_driver_sql("BEGIN")
-        tables = build_google_sheet_tables(db)
+        tables = (
+            build_google_sheet_tables(db, destination=destination)
+            if destination is not None
+            else build_google_sheet_tables(db)
+        )
         db.rollback()
         result = execute(
             lambda: service.update(tables, expected_spreadsheet_id=payload.spreadsheet_id)
         )
     except Exception:
         db.rollback()
-        maintenance_activity(db, "Failed or unconfirmed Google Sheets update", "Failed")
+        maintenance_activity(db, f"Failed or unconfirmed {label} update", "Failed")
         raise
     try:
-        maintenance_activity(db, "Completed Google Sheets update", "Completed")
+        maintenance_activity(db, f"Completed {label} update", "Completed")
     except HTTPException:
         # Google already committed. Do not misreport it as an unsuccessful export.
         result["message"] = (
@@ -132,10 +157,60 @@ def update_sheet(
 def disconnect(
     service: GoogleSheetsService = Depends(get_google_sheets_service), db: Session = Depends(get_db)
 ):
-    maintenance_activity(db, "Requested Google Sheets disconnection", "Requested")
+    return _disconnect(service, db)
+
+
+def _disconnect(service, db, destination=None):
+    label = _activity_label(destination)
+    maintenance_activity(db, f"Requested {label} disconnection", "Requested")
     result = execute(service.disconnect)
-    maintenance_activity(db, "Completed Google Sheets disconnection", "Completed")
+    maintenance_activity(db, f"Completed {label} disconnection", "Completed")
     return result
+
+
+@router.get("/destinations/{destination}")
+def destination_status(
+    destination: GoogleSheetsDestination,
+    service: GoogleSheetsService = Depends(get_google_sheets_destination_service),
+):
+    return execute(service.status)
+
+
+@router.put("/destinations/{destination}")
+def configure_destination(
+    destination: GoogleSheetsDestination,
+    payload: ConnectionInput,
+    service: GoogleSheetsService = Depends(get_google_sheets_destination_service),
+    db: Session = Depends(get_db),
+):
+    return _configure_connection(payload, service, db, destination)
+
+
+@router.post("/destinations/{destination}/test")
+def test_destination(
+    destination: GoogleSheetsDestination,
+    service: GoogleSheetsService = Depends(get_google_sheets_destination_service),
+):
+    return execute(service.test_connection)
+
+
+@router.post("/destinations/{destination}/sync")
+def update_destination(
+    destination: GoogleSheetsDestination,
+    payload: SyncInput,
+    service: GoogleSheetsService = Depends(get_google_sheets_destination_service),
+    db: Session = Depends(get_db),
+):
+    return _update_sheet(payload, service, db, destination)
+
+
+@router.delete("/destinations/{destination}")
+def disconnect_destination(
+    destination: GoogleSheetsDestination,
+    service: GoogleSheetsService = Depends(get_google_sheets_destination_service),
+    db: Session = Depends(get_db),
+):
+    return _disconnect(service, db, destination)
 
 
 @router.get("/setup-guide")

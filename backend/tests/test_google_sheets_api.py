@@ -5,7 +5,11 @@ from sqlalchemy import func, select
 
 import app.main as main
 from app.models import ActivityEvent, FacultyWorkload, SavedProjection, WorkloadCostSettings
-from app.services.google_sheets import GoogleSheetsError, get_google_sheets_service
+from app.services.google_sheets import (
+    GoogleSheetsError,
+    get_google_sheets_destination_service,
+    get_google_sheets_service,
+)
 from app.services.sheets_exports import build_google_sheet_tables
 
 PREFIX = "/api/v1/maintenance/google-sheets"
@@ -52,6 +56,17 @@ def sheets(client):
     fake = FakeService()
     main.app.dependency_overrides[get_google_sheets_service] = lambda: fake
     return fake
+
+
+@pytest.fixture
+def destinations(client):
+    services = {name: FakeService() for name in ("workloads", "overload", "profiles")}
+
+    def destination_service(destination: str):
+        return services[destination]
+
+    main.app.dependency_overrides[get_google_sheets_destination_service] = destination_service
+    return services
 
 
 def faculty_input(name):
@@ -266,3 +281,122 @@ def test_saved_estimate_summary_reads_frozen_values_without_exporting_raw_json(c
         tables = {table.title: table for table in build_google_sheet_tables(db)}
     assert tables["Cathedra Saved Estimates"].rows[0][6] == frozen.combined_period_estimate
     assert "private-account-name" not in str(tables)
+
+
+@pytest.mark.parametrize("destination", ["workloads", "overload", "profiles"])
+def test_scoped_routes_require_administrator_for_every_operation(client, destinations, destination):
+    assert (
+        client.post(
+            "/api/v1/auth/users",
+            json={"username": "sheet-staff", "password": "staff-password-123", "role": "staff"},
+        ).status_code
+        == 201
+    )
+    token = client.post(
+        "/api/v1/auth/login", json={"username": "sheet-staff", "password": "staff-password-123"}
+    ).json()["token"]
+    for method, suffix, body in [
+        ("get", "", None),
+        ("put", "", {"spreadsheet_url": SHEET_ID}),
+        ("delete", "", None),
+        ("post", "/test", None),
+        ("post", "/sync", {"spreadsheet_id": SHEET_ID}),
+    ]:
+        url = f"{PREFIX}/destinations/{destination}{suffix}"
+        assert (
+            client.request(
+                method, url, json=body, headers={"Authorization": f"Bearer {token}"}
+            ).status_code
+            == 403
+        )
+        assert (
+            client.request(method, url, json=body, headers={"Authorization": ""}).status_code == 401
+        )
+    assert all(
+        not service.configured and service.tables is None for service in destinations.values()
+    )
+
+
+def test_scoped_configuration_test_and_disconnect_touch_only_selected_destination(
+    client, destinations
+):
+    for destination in destinations:
+        url = f"{PREFIX}/destinations/{destination}"
+        assert client.get(url).status_code == 200
+        assert (
+            client.put(
+                url, json={"spreadsheet_url": SHEET_ID, "service_account_json": "synthetic-key"}
+            ).status_code
+            == 200
+        )
+        assert client.post(url + "/test").status_code == 200
+    assert client.delete(PREFIX + "/destinations/overload").status_code == 200
+    assert destinations["workloads"].configured and destinations["profiles"].configured
+    assert not destinations["overload"].configured
+    assert all(service.tested and service.tables is None for service in destinations.values())
+
+
+@pytest.mark.parametrize("destination", ["workloads", "overload", "profiles"])
+def test_scoped_sync_uses_selected_dataset_and_confirmed_destination(
+    client, destinations, monkeypatch, destination
+):
+    import app.api.google_sheets as api
+    from app.services.google_sheets import SheetTable
+
+    def snapshot(db, *, destination):
+        assert db.connection().connection.driver_connection.in_transaction
+        return [SheetTable("Cathedra Overview", ["Scope"], [[destination]])]
+
+    monkeypatch.setattr(api, "build_google_sheet_tables", snapshot)
+    url = f"{PREFIX}/destinations/{destination}/sync"
+    assert client.post(url).status_code == 422
+    assert client.post(url, json={"spreadsheet_id": SHEET_ID}).status_code == 200
+    selected = destinations[destination]
+    assert selected.expected == SHEET_ID
+    assert selected.tables[0].rows == [[destination]]
+    assert all(other.tables is None for name, other in destinations.items() if name != destination)
+    label = {
+        "workloads": "Faculty workload Google Sheets",
+        "overload": "Overload projection Google Sheets",
+        "profiles": "Faculty profile Google Sheets",
+    }[destination]
+    with main.SessionLocal() as db:
+        actions = db.scalars(select(ActivityEvent.action)).all()
+    assert f"Requested {label} update" in actions
+    assert f"Completed {label} update" in actions
+    assert "Completed Google Sheets update" not in actions
+
+
+@pytest.mark.parametrize("method,suffix", [("get", ""), ("put", ""), ("post", "/sync")])
+def test_invalid_scoped_destination_has_safe_validation_error(client, method, suffix):
+    response = client.request(
+        method,
+        PREFIX + "/destinations/SYNTHETIC-PRIVATE-MATERIAL" + suffix,
+        json={"service_account_json": {"private_key": "SYNTHETIC-PRIVATE-MATERIAL"}},
+    )
+    assert response.status_code == 422
+    assert "SYNTHETIC-PRIVATE-MATERIAL" not in response.text
+
+
+def test_scoped_malformed_key_never_echoes_input(client, destinations):
+    response = client.put(
+        PREFIX + "/destinations/profiles",
+        json={
+            "spreadsheet_url": SHEET_ID,
+            "service_account_json": {"private_key": "SYNTHETIC-PRIVATE-MATERIAL"},
+        },
+    )
+    assert response.status_code == 422
+    assert "SYNTHETIC-PRIVATE-MATERIAL" not in response.text
+
+
+def test_scoped_failed_update_records_only_selected_category_failure(client, destinations):
+    destinations["overload"].fail = True
+    response = client.post(
+        PREFIX + "/destinations/overload/sync", json={"spreadsheet_id": SHEET_ID}
+    )
+    assert response.status_code == 502
+    with main.SessionLocal() as db:
+        actions = db.scalars(select(ActivityEvent.action)).all()
+    assert "Failed or unconfirmed Overload projection Google Sheets update" in actions
+    assert "Completed Overload projection Google Sheets update" not in actions

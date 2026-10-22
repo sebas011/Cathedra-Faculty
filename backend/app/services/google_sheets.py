@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 import requests
@@ -42,6 +43,15 @@ METADATA_FIELDS = (
 )
 _ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{20,200}\Z")
 _EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com\Z")
+GoogleSheetsDestination = Literal["workloads", "overload", "profiles"]
+DESTINATIONS = ("workloads", "overload", "profiles")
+_configuration_locks: dict[Path, threading.RLock] = {}
+_configuration_locks_guard = threading.Lock()
+
+
+def _configuration_lock(directory: Path):
+    with _configuration_locks_guard:
+        return _configuration_locks.setdefault(directory, threading.RLock())
 
 
 @dataclass
@@ -466,9 +476,14 @@ def _batch(tables: list[SheetTable], metadata: dict) -> tuple[bytes, list[dict]]
 
 
 class GoogleSheetsService:
-    def __init__(self, data_directory: Path):
-        self._directory = Path(data_directory) / ".google-sheets"
-        self._path = self._directory / "connection.json"
+    def __init__(self, data_directory: Path, *, destination: GoogleSheetsDestination | None = None):
+        if destination is not None and destination not in DESTINATIONS:
+            raise GoogleSheetsError(422, "Choose a valid Google Sheets destination.")
+        self._directory = Path(data_directory).resolve() / ".google-sheets"
+        self._destination = destination
+        filename = f"connection-{destination}.json" if destination else "connection.json"
+        self._path = self._directory / filename
+        self._configuration_lock = _configuration_lock(self._directory)
         self._lock = threading.RLock()
         self._state = _empty_state()
         self._load_error: str | None = None
@@ -478,10 +493,14 @@ class GoogleSheetsService:
 
     def _load(self) -> None:
         if self._directory.is_symlink() or self._path.is_symlink():
+            self._state["configured"] = self._path.is_symlink() or self._path.exists()
             self._load_error = "Google Sheets settings use an unsupported storage location. Disconnect the local settings before reconnecting."
             return
         if not self._path.exists():
             return
+        # A saved connection still needs a recovery control when its key or
+        # JSON cannot be opened. Never present it as ready or expose its data.
+        self._state["configured"] = True
         try:
             if self._path.stat().st_size > 128 * 1024:
                 raise ValueError
@@ -570,7 +589,9 @@ class GoogleSheetsService:
             return result
 
     def configure(self, spreadsheet_url: str, service_account_json: str | None) -> dict:
-        with self._lock:
+        # Every destination (including the original combined connection) uses
+        # the same lock. The duplicate check and atomic save are one operation.
+        with self._configuration_lock, self._lock:
             spreadsheet_id = _spreadsheet_id(spreadsheet_url)
             if service_account_json is not None:
                 info, credentials = _credential_info(service_account_json)
@@ -578,6 +599,7 @@ class GoogleSheetsService:
                 info, credentials = self._info, self._credentials
             else:
                 raise GoogleSheetsError(422, "Choose a Google service-account JSON key to connect.")
+            self._require_distinct_destination(spreadsheet_id)
             state = (
                 dict(self._state)
                 if spreadsheet_id == self._state["spreadsheet_id"]
@@ -597,6 +619,42 @@ class GoogleSheetsService:
                 **self.status(),
                 "message": "Connection saved locally. Test the connection before updating Google Sheets.",
             }
+
+    def _require_distinct_destination(self, spreadsheet_id: str) -> None:
+        for destination in (None, *DESTINATIONS):
+            filename = f"connection-{destination}.json" if destination else "connection.json"
+            path = self._directory / filename
+            if path == self._path:
+                continue
+            try:
+                if self._directory.is_symlink() or path.is_symlink():
+                    raise ValueError
+                if not path.exists():
+                    continue
+                if path.stat().st_size > 128 * 1024:
+                    raise ValueError
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                if saved.get("version") != 1:
+                    raise ValueError
+                other_id = _spreadsheet_id(saved["state"]["spreadsheet_id"])
+            except (
+                OSError,
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RecursionError,
+                GoogleSheetsError,
+            ):
+                raise GoogleSheetsError(
+                    409,
+                    "Another Google Sheets connection could not be checked. Disconnect its local settings before saving this connection.",
+                ) from None
+            if other_id == spreadsheet_id:
+                raise GoogleSheetsError(
+                    409,
+                    "Use a different spreadsheet for each destination. This spreadsheet is already connected to another destination or the previous combined export.",
+                )
 
     def _require_configured(self) -> None:
         if not self._credentials or not self._state["spreadsheet_id"]:
@@ -647,8 +705,13 @@ class GoogleSheetsService:
                 transport.close()
 
     def disconnect(self) -> dict:
-        with self._lock:
+        with self._configuration_lock, self._lock:
             try:
+                if self._directory.is_symlink():
+                    raise GoogleSheetsError(
+                        409,
+                        "The Google Sheets settings folder is a symbolic link. Remove that link from the app's local data folder before reconnecting.",
+                    )
                 self._path.unlink(missing_ok=True)
             except OSError:
                 raise GoogleSheetsError(
@@ -733,15 +796,26 @@ class GoogleSheetsService:
             pass
 
 
-_services: dict[Path, GoogleSheetsService] = {}
+_services: dict[tuple[Path, GoogleSheetsDestination | None], GoogleSheetsService] = {}
 _services_lock = threading.Lock()
 
 
 def get_google_sheets_service() -> GoogleSheetsService:
+    return _get_service(None)
+
+
+def get_google_sheets_destination_service(
+    destination: GoogleSheetsDestination,
+) -> GoogleSheetsService:
+    return _get_service(destination)
+
+
+def _get_service(destination: GoogleSheetsDestination | None) -> GoogleSheetsService:
     from app.db import DB_PATH
 
     directory = DB_PATH.parent.resolve()
+    key = (directory, destination)
     with _services_lock:
-        if directory not in _services:
-            _services[directory] = GoogleSheetsService(directory)
-        return _services[directory]
+        if key not in _services:
+            _services[key] = GoogleSheetsService(directory, destination=destination)
+        return _services[key]

@@ -87,6 +87,22 @@ try {
   $sheetsConfigured = Invoke-RestMethod -Method Put -Uri $sheetsApi -Headers $headers -ContentType 'application/json' -Body (@{spreadsheet_url='cathedra-packaging-test-spreadsheet';service_account_json=$syntheticCredentials} | ConvertTo-Json)
   if (-not $sheetsConfigured.configured -or $sheetsConfigured.service_account_email -ne 'packaging-check@cathedra-packaging-test.iam.gserviceaccount.com') { throw 'Packaged Google authentication dependencies could not validate a synthetic key.' }
   Invoke-RestMethod -Method Delete -Uri $sheetsApi -Headers $headers | Out-Null
+  $destinations = @('workloads', 'overload', 'profiles')
+  foreach ($destination in $destinations) {
+    $destinationApi = "$sheetsApi/destinations/$destination"
+    if ((Invoke-RestMethod -Uri $destinationApi -Headers $headers).configured) { throw 'A clean package contains an unexpected category connection.' }
+    $destinationBody = @{spreadsheet_url="cathedra-packaging-test-$destination"; service_account_json=$syntheticCredentials} | ConvertTo-Json
+    $destinationStatus = Invoke-RestMethod -Method Put -Uri $destinationApi -Headers $headers -ContentType 'application/json' -Body $destinationBody
+    if (-not $destinationStatus.configured -or $destinationStatus.spreadsheet_id -ne "cathedra-packaging-test-$destination") { throw 'A packaged category connection did not retain its own destination.' }
+  }
+  Invoke-RestMethod -Method Delete -Uri "$sheetsApi/destinations/workloads" -Headers $headers | Out-Null
+  if ((Invoke-RestMethod -Uri "$sheetsApi/destinations/workloads" -Headers $headers).configured -or
+      -not (Invoke-RestMethod -Uri "$sheetsApi/destinations/overload" -Headers $headers).configured -or
+      -not (Invoke-RestMethod -Uri "$sheetsApi/destinations/profiles" -Headers $headers).configured) { throw 'Disconnecting one category changed another Google Sheets connection.' }
+  foreach ($destination in $destinations) {
+    Invoke-RestMethod -Method Delete -Uri "$sheetsApi/destinations/$destination" -Headers $headers | Out-Null
+    if ((Invoke-RestMethod -Uri "$sheetsApi/destinations/$destination" -Headers $headers).configured) { throw 'A temporary category connection was not removed.' }
+  }
   $syntheticCredentials = $null; $syntheticKey = $null
   if ((Invoke-RestMethod -Uri $sheetsApi -Headers $headers).configured) { throw 'The temporary Google connection was not removed.' }
   $facultyInput = @{

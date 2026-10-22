@@ -15,12 +15,14 @@ export interface GoogleSheetsStatus {
 }
 
 const path = "/maintenance/google-sheets";
-export const getGoogleSheetsStatus = () => request<GoogleSheetsStatus>(path);
-export const configureGoogleSheets = (spreadsheet_url: string, service_account_json: string | null) =>
-  request<GoogleSheetsStatus>(path, { method: "PUT", body: JSON.stringify({ spreadsheet_url, service_account_json }) });
-export const testGoogleSheetsConnection = () => request<GoogleSheetsStatus>(`${path}/test`, { method: "POST" });
-export const updateGoogleSheet = (spreadsheet_id: string) => request<GoogleSheetsStatus>(`${path}/sync`, { method: "POST", body: JSON.stringify({ spreadsheet_id }) });
-export const disconnectGoogleSheets = () => request<GoogleSheetsStatus>(path, { method: "DELETE" });
+export type GoogleSheetsDestination = "workloads" | "overload" | "profiles";
+const destinationPath = (destination?: GoogleSheetsDestination) => destination ? `${path}/destinations/${destination}` : path;
+export const getGoogleSheetsStatus = (destination?: GoogleSheetsDestination) => request<GoogleSheetsStatus>(destinationPath(destination));
+export const configureGoogleSheets = (spreadsheet_url: string, service_account_json: string | null, destination?: GoogleSheetsDestination) =>
+  request<GoogleSheetsStatus>(destinationPath(destination), { method: "PUT", body: JSON.stringify({ spreadsheet_url, service_account_json }) });
+export const testGoogleSheetsConnection = (destination?: GoogleSheetsDestination) => request<GoogleSheetsStatus>(`${destinationPath(destination)}/test`, { method: "POST" });
+export const updateGoogleSheet = (spreadsheet_id: string, destination?: GoogleSheetsDestination) => request<GoogleSheetsStatus>(`${destinationPath(destination)}/sync`, { method: "POST", body: JSON.stringify({ spreadsheet_id }) });
+export const disconnectGoogleSheets = (destination?: GoogleSheetsDestination) => request<GoogleSheetsStatus>(destinationPath(destination), { method: "DELETE" });
 export const downloadGoogleSheetsGuide = () => downloadFile(`${path}/setup-guide`, "cathedra-google-sheets-setup.md");
 
 /** Always build an outbound link ourselves; never render an arbitrary returned URL. */

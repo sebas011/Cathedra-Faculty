@@ -1,46 +1,64 @@
 # Google Sheets setup for Cathedra
 
-Last reviewed: **22 October 2026**.
+Last reviewed: **22 October 2026**. Applies to **0.3.5 and later**.
 
-Use this guide to connect a Google Sheet once, then send your current Cathedra records whenever you press **Update Google Sheet**. The Google Sheets card is available to an **administrator** under **Backup & Export**.
+Administrators use **Backup & Export → Google Sheets** to connect three separate
+Google spreadsheets. Each category has its own **Update Google Sheet** action,
+connection, test, last successful update and disconnect control.
 
-To download another copy from the app, open **Connect Google Sheet** (or **Edit connection**) and choose **Download detailed setup guide** in the expanded setup area.
+| App card | Button | Contents |
+| --- | --- | --- |
+| Faculty Workload | **Update workload sheet** | Workload records, course assignments and approved workload history; no salary or calculated payment columns. |
+| Overload Projection | **Update overload sheet** | Regular Faculty overload estimates, overload budgets and relevant cost settings; no monthly salary projection or part-time teaching costs. |
+| Faculty Profile | **Update profile sheet** | Faculty profile fields, including the salary fields recorded on the profile. |
 
-## What this connection does
+Use **three different spreadsheet links**. You can use the same Google service
+account and JSON key for all three; share each spreadsheet with that account as
+**Editor**, and choose its JSON file when saving each connection. You can instead
+use a different service account for each destination if office access rules require it.
 
-- Sends a snapshot of the latest **saved records on the computer running Cathedra**. Save any open forms before updating.
-- Runs only when an administrator chooses **Update Google Sheet** and confirms. Saving records in Cathedra does not automatically update Google Sheets.
-- Creates and refreshes twelve Cathedra tabs inside your selected spreadsheet. Your existing tabs are kept.
-- Includes faculty, workloads, assignments, approved workload history, cost settings, projections, and saved financial summaries, including **salary information**. Everyone who can access the spreadsheet may see that information.
-- Sends data in one direction: **Cathedra → Google Sheets**. Changes in Google Sheets do not change Cathedra. Edits made inside Cathedra's export tabs will be replaced by the next update.
+Updates send the latest **saved records on this computer** and run only when you
+click and confirm the selected button. Save open forms first. Each update creates
+or replaces only that category's Cathedra tabs, keeping your other tabs. Editing
+Google Sheets does not change Cathedra. Separate computers do not automatically
+synchronize or merge databases; choose one current source computer for reporting.
 
-This is a shared report, not a replacement for Cathedra database backups or automatic synchronization between computers. If two computers hold different Cathedra data, the computer that performs the next update supplies the snapshot. Choose one current source computer for routine updates.
+The profile spreadsheet contains personnel and salary data. The overload sheet
+contains financial planning estimates. Review readers for each spreadsheet and
+keep **General access → Restricted**. Store the original JSON key privately.
+The spreadsheet snapshots do not replace database backups.
+
+The generic guide is downloadable from an expanded **Connect Google Sheet** or
+**Edit connection** form using **Download detailed setup guide**. It contains no
+private spreadsheet links or Google credential.
 
 ## Before you start
 
-Have the following ready:
+You need an administrator account in Cathedra, permission to edit/share the three
+spreadsheets, internet access, and permission to create/use a Google Cloud project,
+enable its Sheets API and obtain an approved service account JSON key. A school
+or workplace IT administrator may need to do the Google Cloud steps.
 
-1. An administrator account in Cathedra.
-2. A Google account that can edit and share the destination spreadsheet.
-3. Permission to create or use a Google Cloud project, enable the Google Sheets API, and create a service account key. A school or workplace IT administrator may need to do these steps.
-4. Internet access for Google Cloud setup, **Test connection**, and **Update Google Sheet**. Normal local Cathedra work remains available offline.
-5. A protected location for the downloaded JSON key. It is a credential, similar to a password.
+This uses a service account directly shared on each sheet. No Google Sheets
+add-on, Apps Script, Google Drive API, OAuth consent screen or domain-wide
+delegation is required. [Google: service accounts and direct file sharing](https://developers.google.com/workspace/guides/create-credentials#service-account).
 
-No Google Sheets add-on or Apps Script needs to be installed. This connection uses a service account: a Google identity for the app. It does not need the Google Drive API, an OAuth consent screen, or domain-wide delegation. Google documents direct sharing for access to a specific sheet. [Google: choosing credentials and direct file sharing](https://developers.google.com/workspace/guides/create-credentials#service-account).
+## Part 1 — Prepare three destination spreadsheets
 
-Google's console wording can change. If your organization prevents project creation, key creation, or sharing with a service account, ask its IT administrator for help. Keep the organization's controls in place.
+1. Open your intended workload, overload and faculty profile spreadsheets. If
+   needed, create three blank spreadsheets at [Google Sheets](https://sheets.google.com/).
+2. Give them recognizable names, such as **Cathedra — Faculty Workload**,
+   **Cathedra — Overload Projection** and **Cathedra — Faculty Profile**.
+3. Confirm you can edit and share each one. Review existing readers in **Share**
+   and keep **General access → Restricted**. Different readers can be used on each.
+4. Keep their existing tabs. Cathedra adds its own tabs alongside them.
+5. Copy each full `https://docs.google.com/spreadsheets/d/…/edit` link and label
+   which category it belongs to. The three spreadsheet IDs must be different.
 
-## Part 1 — Prepare the destination spreadsheet
-
-1. Open the Google Sheet you want Cathedra to update. Use a sheet intended for the people who are allowed to see faculty and salary data.
-2. Confirm that you have **Editor** or **Owner** access and permission to share it.
-3. Keep the existing worksheet tabs. Cathedra adds its own tabs alongside them; you do not need to delete or empty anything.
-4. Click **Share**. Check **General access** and keep it **Restricted**. Review the people and groups already listed, including any access inherited from a folder.
-5. Copy the full spreadsheet link from your browser's address bar. It should begin with `https://docs.google.com/spreadsheets/d/`.
-
-The part after `/d/` identifies the entire spreadsheet. A suffix such as `#gid=0` selects a tab in your browser; it does not limit Cathedra to that tab. Cathedra normalizes the saved link to the spreadsheet's main edit URL.
-
-Google explains the available sharing roles and Restricted access in its [file-sharing guide](https://support.google.com/drive/answer/2494822).
+A `#gid=…` suffix selects a tab inside one spreadsheet. Three tabs or three
+different `gid` links in the same file are not three separate spreadsheets.
+Cathedra normalizes the link to the spreadsheet's main edit URL.
+Google explains sharing roles in its [file-sharing guide](https://support.google.com/drive/answer/2494822).
 
 ## Part 2 — Create or select a Google Cloud project
 
@@ -93,127 +111,136 @@ Google allows the private key to be downloaded only when it is created. If the o
 
 An API key or OAuth client configuration file will not work here. Use the JSON key downloaded from the service account's **Keys** tab.
 
-## Part 5 — Choose the key in Cathedra and share the sheet
+## Part 5 — Connect each matching spreadsheet
 
-1. Open Cathedra and sign in as an administrator.
-2. Open **Backup & Export**.
-3. Find the **GOOGLE SHEETS** card, titled **Keep your shared sheet up to date**.
-4. Choose **Connect Google Sheet**. The one-time setup and connection form expand.
-5. Paste your spreadsheet URL into **Google Sheet link**.
-6. Under **Service account JSON key**, choose the `.json` file downloaded in Part 4. The file must be no larger than **64 KiB**.
-7. Wait until Cathedra displays the service account email under the file field. The app shows the email, not the private key.
-8. In Google Sheets, open the destination spreadsheet and choose **Share**.
-9. Paste the **exact service account email shown by Cathedra** into the field for adding people. Do not add your own personal email in its place.
-10. Choose **Editor** for that service account.
-11. Deselect **Notify people** if the option is present; service accounts do not have an inbox. Choose **Share** or **Send** to apply the permission.
-12. Confirm that the service account is now listed as **Editor** and **General access** is still **Restricted**.
+1. Open Cathedra, sign in as an administrator, and open **Backup & Export**.
+2. Find the three **Google Sheets** destination cards.
+3. On **Faculty Workload**, choose **Connect Google Sheet**.
+4. Paste the **workload spreadsheet** URL into **Google Sheet link**.
+5. Under **Service account JSON key**, choose the JSON downloaded in Part 4.
+   It must be no larger than **64 KiB**. Wait for the service account email.
+6. In that spreadsheet's **Share** dialog, add the exact service account email
+   as **Editor**. Deselect **Notify people** if shown, and apply the share.
+7. Return to Cathedra and choose **Save connection**. Then **Test connection**.
+8. Repeat on **Overload Projection**, using its own spreadsheet link. Choose
+   the same JSON if using one service account, and share this spreadsheet too.
+9. Repeat on **Faculty Profile**, using the profile spreadsheet link and sharing
+   it with the displayed account. Review its readers because salary fields are included.
+10. Confirm all three cards point to the intended **different spreadsheets**.
 
-Sharing the individual spreadsheet grants the required document access. [Google: share a file directly with a service account](https://developers.google.com/workspace/guides/create-credentials#access-google-workspace-files-directly-with-a-service-account).
+Saving a connection is local and does not upload records. **Test connection**
+only reads spreadsheet metadata. It does not verify Editor/write permission;
+the first successful update is the write check.
 
-## Part 6 — Save and test the connection
+Each connection stores its own key and status in private files under
+`data/.google-sheets` beside the active database. Windows protects saved keys for
+the current Windows user using DPAPI. Database backups exclude all Google
+connection settings and keys. Reconnect on another PC or Windows account using
+the protected original JSON or an approved replacement.
 
-1. Return to the expanded form in Cathedra.
-2. Choose **Save connection**.
-3. Confirm that the card shows **Connection saved**. This stores the connection locally; it does not upload your records or change the Google Sheet.
-4. Choose **Test connection**.
-5. Wait for the result and check that the connected sheet and service account shown on the card are the ones you intended.
+## Part 6 — Perform the first category updates
 
-**Test connection only reads spreadsheet metadata. It does not write cells and does not prove that the service account has Editor permission.** A Viewer can pass a read test and still fail the update. The first successful **Update Google Sheet** is the write check.
+1. Save current records and confirm this is the intended source computer.
+2. On **Faculty Workload**, choose **Update workload sheet**, review its
+   destination and workload-only confirmation, and confirm.
+3. Wait for success and check that card's **Last successful update** and counts.
+4. Use **Open Google Sheet** on that card. In **Cathedra Overview**, check
+   **Snapshot generated at (UTC)** and sample records. The app displays its last
+   successful update in local time. Confirm original tabs remain.
+5. On **Overload Projection**, choose **Update overload sheet**, confirm, and
+   check the overload spreadsheet in the same way.
+6. On **Faculty Profile**, choose **Update profile sheet**, confirm the
+   personnel/salary scope, and check the profile spreadsheet.
 
-The app's connection settings and credential are stored separately in a `.google-sheets` folder beside the active database, normally `data/.google-sheets`. On Windows, the saved credential is protected for the current Windows user using Windows Data Protection (DPAPI). A different Windows user or computer cannot reuse that saved credential; reconnect using the original protected JSON or an approved replacement. Cathedra database backups do not include the connection settings or key.
+Each update affects only the selected connection. Success or failure on one card
+does not change another card's last update. Disconnecting one does not disconnect
+the others. An interrupted update may already have reached Google: check that
+destination's Overview timestamp before retrying.
 
-## Part 7 — Perform the first update
+## Category tabs and boundaries
 
-1. Save any faculty, workload, cost-setting, or other forms you have been editing in Cathedra.
-2. Check that this computer has the records you intend to publish.
-3. In **Backup & Export → GOOGLE SHEETS**, choose **Update Google Sheet**.
-4. Read the confirmation. It explains that faculty, workloads, approvals, and financial summaries, including salary information, will be sent and that Cathedra replaces its own tabs while keeping other tabs.
-5. Choose **Update Google Sheet** in the confirmation to proceed, or cancel if the destination/access is wrong.
-6. Wait for the result. Avoid starting another update while the card says **Updating…**.
-7. Confirm that the card reports success and **Last successful update** shows the new time. Review the row counts from that update.
-8. Choose **Open Google Sheet**.
-9. Open **Cathedra Overview** and check **Snapshot generated at (UTC)**. This timestamp is in UTC; the app's **Last successful update** is displayed in your local time. Check a faculty row and a workload or financial summary against the saved records in Cathedra.
-10. Confirm that your original tabs are still present.
-
-The first update has succeeded only after the app confirms it and you verify the destination. A downloaded guide or a saved connection alone does not mean data has reached Google Sheets.
-
-## The twelve Cathedra tabs
-
-The exact tab names and contents are:
-
-| Tab | What it contains |
+| Spreadsheet | Cathedra tabs |
 | --- | --- |
-| Cathedra Overview | **Snapshot generated at (UTC)**, snapshot context, record counts, and warnings about missing calculation settings. |
-| Cathedra Faculty | Saved faculty profile details. |
-| Cathedra Workloads | Saved faculty workload records. |
-| Cathedra Assignments | Course/teaching assignments associated with workloads. |
-| Cathedra Approved Workloads | Frozen approved workload history. Historical approvals remain historical snapshots, rather than being recalculated with today's settings. |
-| Cathedra Cost Settings | Saved cost and compensation settings used by the app. |
-| Cathedra Qualification Draft | Qualification-rate draft information, clearly identified as a draft that has **not been applied**. |
-| Cathedra Salary Projection | Salary projection information based on the saved data and required settings. |
-| Cathedra Teaching Projection | Teaching projection for the active office period. If no active period is set, the tab has headers and no projection rows. |
-| Cathedra Saved Estimates | Summaries of saved estimates. |
-| Cathedra Overload Budgets | Saved overload budget information. |
-| Cathedra No Teaching | Saved records for faculty with no teaching assignment. |
+| Faculty Workload | **Cathedra Overview**, **Cathedra Workloads**, **Cathedra Assignments**, **Cathedra Approved Workloads** |
+| Overload Projection | **Cathedra Overview**, **Cathedra Overload Projection**, **Cathedra Overload Budgets**, **Cathedra Cost Settings** |
+| Faculty Profile | **Cathedra Overview**, **Cathedra Faculty** |
 
-When required cost settings are missing, Cathedra withholds calculated costs/projections and includes an explanation in **Cathedra Overview**. It also warns when no active office period is selected and leaves the affected projection tabs without data rows. Complete the missing settings in Cathedra, save, and update again.
+Overview contains only the selected category's context, counts and relevant
+warnings. Workload history preserves approved workload identity/hours instead
+of recalculating historical values. Overload estimates use the app's existing
+current Regular Faculty overload calculations, active office period and applicable
+weeks; they are planning estimates rather than payments already disbursed.
+Internal/external part-time teaching, salary projections, combined saved financial
+estimates and qualification drafts are excluded from the overload spreadsheet.
 
-Authentication accounts, passwords, sessions, activity history, internal credentials, and private keys are excluded. The spreadsheet is a reporting snapshot, so keep using **Backup & Export** database backups for recovery.
+If the overload period or cost settings are missing, the projection contains
+headers and no estimate rows, with an explanation in **Cathedra Overview**.
+Set the intended period/settings in Cathedra, save, and update that category again.
+Profile and workload exports do not need projection settings.
 
-### How Cathedra keeps existing tabs
+Accounts, passwords, sessions, activity logs, private keys, internal import
+provenance and raw stored snapshots are never exported.
 
-Cathedra marks the tabs it creates as its own. An update replaces only those marked export tabs and clears old rows that are no longer in the current snapshot. It does not delete all spreadsheet tabs. Your other tabs, including your original first tab, remain in place.
+Cathedra marks the tabs it creates. Updates replace only their marked category
+tabs and clear surplus old rows. Other tabs remain in place. If an existing
+unowned tab has a conflicting name, rename it while retaining its data; Cathedra
+refuses to take ownership or overwrite it. Keep manual notes/formulas in your own
+tabs because Cathedra's export tabs are replaced by the next update. App values
+are written as literal cells, including formula-like text.
 
-If an existing unowned tab already has a name Cathedra needs, the update stops rather than overwrite that tab. In Google Sheets, rename your existing tab to a different name, such as a name ending in `Original`, then retry. Do not delete useful data to resolve the conflict.
+Each spreadsheet update is one atomic batch. A rejected batch applies none of its
+changes; a lost response can leave the outcome uncertain. [Google: batch updates](https://developers.google.com/workspace/sheets/api/guides/batchupdate).
 
-Keep manual notes and formulas in your own tabs. Text supplied by the app is written as literal text, including names or values starting with formula-like characters. The export does not execute those strings as Google Sheets formulas.
+## Normal updates and connection changes
 
-The changes are submitted together in one batch, including clearing stale exported rows. A rejected batch applies none of its changes. An interrupted response can still leave the final result uncertain, so use the timestamp check described below before retrying. Google documents this batch behavior in [Update spreadsheets](https://developers.google.com/workspace/sheets/api/guides/batchupdate).
+Save app records, open **Backup & Export**, and use the update button for the
+category you need. Update all three individually if you want all reports refreshed.
+No update is scheduled automatically after saving records, restarting or reconnecting
+to the internet. You do not repeat Google Cloud setup each time.
 
-## Your normal update routine
+To change a destination, share the new sheet with its saved service account as
+Editor, choose **Edit connection** on that category, replace its link, leave the
+key unselected to keep that category's saved credential, save and test. The new
+spreadsheet must differ from the other category destinations. Previously exported
+data in the old sheet remains; manage that sheet's sharing separately.
 
-1. Finish and save the current records in Cathedra.
-2. Connect to the internet.
-3. Open **Backup & Export** and check the connected destination.
-4. Choose **Update Google Sheet**, review the confirmation, and confirm.
-5. Check the success message and **Last successful update**. Open the sheet when you need to review or share the report.
+To replace a key, edit each connection using that key, choose the replacement
+JSON, save and test. Share with the new email too if changing service accounts.
+Have the Cloud administrator revoke the old key after the replacement works, or
+immediately if exposed. [Google: key management](https://docs.cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys).
 
-You do not need to repeat Google Cloud setup for each update. Closing the browser, restarting the app, or losing the internet does not schedule an update. When the internet returns, update manually when ready.
+Choose **Disconnect** on one category to remove only its local saved connection
+and key. Previously exported Google data remains. Revoke remote access through
+the sheet's Share dialog or Google Cloud if needed. A shared service account's key
+revocation affects every connection using that key.
 
-## Change, replace, move, or disconnect a connection
+## Upgrading from the single combined connection
 
-### Use a different sheet
+A previous combined connection remains separate; its data, key and spreadsheet
+are not silently migrated or deleted. The new interface shows a notice when one
+is saved and does not offer a combined update button. Use three new separate
+destinations and configure each explicitly. A sheet still assigned to the old
+combined connection cannot be reused as a category destination. Existing combined
+tabs stay available for historical reference.
 
-1. Share the new spreadsheet with the saved service account as **Editor**.
-2. In Cathedra, choose **Edit connection**.
-3. Replace **Google Sheet link**.
-4. Leave the key unselected to keep the saved credential, then choose **Save connection**.
-5. Choose **Test connection**, check the new destination, then run **Update Google Sheet** when ready.
+To remove its saved local credential, choose **Disconnect previous connection**
+in the notice and confirm. This keeps the old Google spreadsheet and its data;
+the three category connections remain intact. The same action can clear unreadable
+legacy settings before you reconnect. A linked settings directory needs manual
+local-folder repair; the app refuses to follow it when disconnecting.
 
-The old spreadsheet and its previously exported data remain. Manage its sharing separately if it should no longer be available to the service account or other readers.
-
-### Replace a lost, expired, or revoked key
-
-1. Ask the authorized Google Cloud administrator to create a new JSON key for the approved service account.
-2. In Cathedra, choose **Edit connection**, choose the replacement JSON file, then **Save connection**.
-3. Run **Test connection** and an update.
-4. Have the administrator remove the old key in Google Cloud once the replacement works, or immediately if the old key was exposed. Removing a key in Google Cloud is separate from disconnecting this app.
-
-If the replacement belongs to a different service account, share the spreadsheet with its new email as **Editor** too. Follow Google's [key management guidance](https://docs.cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys).
-
-### Move to another computer or Windows account
-
-Restore the intended Cathedra database using the normal backup procedure, then reconnect Google Sheets on that computer using the spreadsheet link and original protected JSON file, or an approved replacement key. The saved Windows credential is tied to the Windows user, and a database backup does not carry the Google connection credential. Check the restored records before updating the shared sheet.
-
-### Disconnect
-
-Choose **Disconnect** on the Google Sheets card and confirm. This removes the locally saved connection and credential. The Google Sheet and all data already sent to it remain. To revoke the service account's access at Google, remove it through the sheet's **Share** dialog or have the administrator revoke the key.
+If you later reuse an older combined spreadsheet, review its readers and existing
+tabs first. Disconnecting the app does not remove its old salary, profile or
+workload tabs, and category updates preserve other tabs. Use fresh category
+spreadsheets to keep each report exclusive without carrying old exported data.
 
 ## Troubleshooting
 
 | What you see | What to check or do |
 | --- | --- |
-| The Google Sheets card is missing | Sign in to Cathedra as an administrator and open **Backup & Export**. |
+| A spreadsheet is already assigned | Use three distinct spreadsheet IDs, not different tabs of one spreadsheet. Use a separate sheet from the old combined connection too. |
+| Another saved connection could not be checked | On the affected category choose **Disconnect**, or use **Disconnect previous connection** for old combined settings, then retry and reconnect with the original JSON. This keeps remote tabs and the other connections. A linked settings directory requires local-folder repair; do not overwrite another folder to work around it. |
+| The Google Sheets cards are missing | Sign in to Cathedra as an administrator and open **Backup & Export**. |
 | The sheet link is rejected | Copy the spreadsheet URL from the browser. Use the HTTPS `docs.google.com/spreadsheets/d/…` edit link, not a published-to-web link, a Drive folder, or a tab ID alone. |
 | The JSON file is rejected | Choose the unedited service account JSON downloaded from Google Cloud. An API key, OAuth client file, screenshot, or renamed text file will not work. The maximum size is 64 KiB. |
 | Google Cloud prevents project or key creation | Ask your IT administrator for an approved project/key. Do not weaken an organization policy to follow this guide. |
@@ -234,14 +261,13 @@ Google's [usage limits](https://developers.google.com/workspace/sheets/api/limit
 
 ## Setup completion checklist
 
-- [ ] Google Sheets API enabled in the intended project.
-- [ ] Approved service account and JSON key created.
-- [ ] Original JSON stored privately outside source code and routine database backups.
-- [ ] Destination sheet shared with the exact service account email as **Editor**.
-- [ ] General access kept **Restricted** and existing readers reviewed.
-- [ ] Connection saved in Cathedra and destination checked.
-- [ ] **Test connection** successful.
-- [ ] First **Update Google Sheet** successful; Overview timestamp and sample records verified.
-- [ ] Original spreadsheet tabs confirmed intact.
+- [ ] Sheets API enabled; approved service account and private JSON ready.
+- [ ] Three different spreadsheet links assigned to their matching categories.
+- [ ] Each sheet shared with its connection's account as Editor; readers reviewed.
+- [ ] All three connections saved and read tests passed.
+- [ ] Each category update succeeded; Overview timestamp and sample data checked.
+- [ ] Existing tabs remain intact in all three spreadsheets.
+- [ ] Original JSON kept private; reconnect plan documented for another PC.
 
-This guide describes the setup procedure. A live Google connection and update require your Google credentials and must be completed and verified on your computer.
+The guide is not proof of a live Google update. Real credentials, spreadsheet
+sharing and a successful confirmed update are needed on the intended computer.

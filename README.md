@@ -29,24 +29,28 @@ the existing app and transfer that backup privately; restore it in the office ap
 Restoring replaces the destination records and accounts, so preserve a backup of
 that destination first. Computers do not synchronize automatically.
 
-## Update a Google Sheet
+## Update three separate Google Sheets
 
-In **Backup & Export**, administrators can connect a Google Sheet and click
-**Update Google Sheet** to send the latest saved business data. One-time setup
-uses a dedicated Google service account shared as an editor on your spreadsheet.
+Administrators can connect three different spreadsheets under **Backup & Export**:
+**Faculty Workload**, **Overload Projection** and **Faculty Profile**. Each has its
+own connection, update button, read-only test and last successful update.
+
+Workload exports contain workload records, assignments and frozen approved hours
+without payment columns. Overload exports contain Regular Faculty overload
+estimates, budgets and relevant cost settings; part-time teaching and base salary
+projections are excluded. Profiles include the faculty fields recorded in the app,
+including salary fields. Accounts, sessions, keys and activity logs are excluded.
+
+Use three distinct spreadsheet IDs. You can share them all with one approved
+Google service account as Editor and select its JSON key for each connection.
 Read the [detailed setup guide](docs/GOOGLE_SHEETS_SETUP.md), also downloadable
-from the app's Google Sheets card.
-
-The update creates twelve app-managed Cathedra tabs, preserves other tabs, and
-replaces each exported snapshot without leaving old rows behind. Existing tabs
-with the same names must carry the app's ownership marker before they can be
-updated. Salary and financial summaries are included; accounts, sessions, keys
-and activity logs are excluded. The connection stays on the current PC and must
-be configured separately on another PC. No Google credentials ship in this app.
+from each connection form. Existing tabs are preserved; Cathedra updates only
+its marked category tabs. Old combined connections are preserved separately.
+Connections stay on the current PC; no Google credentials ship in the download.
 
 ## Repository scope
 
-This is a clean publication of the current application source (version 0.3.4,
+This is a clean publication of the current application source (version 0.3.5,
 schema 24). It includes backend and frontend runtime code, synthetic application
 tests, dependency locks, the desktop launcher, packaging and Windows CI workflows.
 

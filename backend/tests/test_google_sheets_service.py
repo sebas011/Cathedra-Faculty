@@ -468,3 +468,176 @@ def test_ambiguous_http_write_outcome_is_reported_as_uncertain(service, monkeypa
     assert error.value.status_code == 504
     assert service.status()["last_result"] == "uncertain"
     assert "PRIVATE-KEY-MATERIAL" not in str(error.value)
+
+
+def test_destination_connections_have_independent_persisted_keys_history_and_disconnect(
+    tmp_path, credential_json, monkeypatch
+):
+    legacy = GoogleSheetsService(tmp_path)
+    legacy.configure("legacy-spreadsheet-identifier-only", credential_json)
+    legacy_bytes = legacy._path.read_bytes()
+    services = {}
+    for index, destination in enumerate(sheets.DESTINATIONS):
+        service = GoogleSheetsService(tmp_path, destination=destination)
+        assert service.status()["configured"] is False
+        info = json.loads(credential_json)
+        info["client_email"] = f"{destination}@test-project.iam.gserviceaccount.com"
+        spreadsheet_id = f"synthetic-{destination}-sheet-identifier"
+        service.configure(spreadsheet_id, json.dumps(info))
+        service._credentials = SimpleNamespace(valid=True, token=f"token-{destination}")
+        transport = FakeTransport(document={"sheets": [], "properties": {"title": destination}})
+        monkeypatch.setattr(service, "_make_transport", lambda value=transport: value)
+        service.update([SheetTable("Cathedra Overview", ["Record"], [[index]])])
+        services[destination] = service
+    for destination, service in services.items():
+        restored = GoogleSheetsService(tmp_path, destination=destination)
+        assert restored.status() == service.status()
+        assert restored.status()["spreadsheet_id"] == f"synthetic-{destination}-sheet-identifier"
+        assert (
+            restored._info["client_email"] == f"{destination}@test-project.iam.gserviceaccount.com"
+        )
+        assert restored._path.name == f"connection-{destination}.json"
+        assert restored.status()["last_result"] == "success"
+    kept = {
+        name: value._path.read_bytes() for name, value in services.items() if name != "overload"
+    }
+    assert services["overload"].disconnect()["configured"] is False
+    assert GoogleSheetsService(tmp_path, destination="overload").status()["configured"] is False
+    assert all(services[name]._path.read_bytes() == content for name, content in kept.items())
+    assert legacy._path.read_bytes() == legacy_bytes
+
+
+@pytest.mark.parametrize("first", [None, "workloads", "overload", "profiles"])
+def test_destination_spreadsheet_ids_cannot_overlap_legacy_or_other_destinations(
+    tmp_path, credential_json, first
+):
+    selected = GoogleSheetsService(tmp_path, destination=first)
+    selected.configure(SPREADSHEET_ID, credential_json)
+    # Saving the same destination and ID remains supported.
+    assert selected.configure(SPREADSHEET_ID, None)["ready"] is True
+    for destination in (None, *sheets.DESTINATIONS):
+        if destination == first:
+            continue
+        other = GoogleSheetsService(tmp_path, destination=destination)
+        with pytest.raises(GoogleSheetsError) as caught:
+            other.configure(SPREADSHEET_ID, credential_json)
+        assert caught.value.status_code == 409
+        assert other.status()["configured"] is False
+        assert not other._path.exists()
+    selected.disconnect()
+    assert (
+        GoogleSheetsService(tmp_path, destination="profiles").configure(
+            SPREADSHEET_ID, credential_json
+        )["ready"]
+        is True
+    )
+
+
+def test_concurrent_destination_saves_cannot_claim_the_same_spreadsheet(tmp_path, credential_json):
+    services = [GoogleSheetsService(tmp_path, destination=name) for name in sheets.DESTINATIONS]
+    start = threading.Barrier(len(services))
+
+    def connect(service):
+        start.wait(timeout=5)
+        try:
+            service.configure(SPREADSHEET_ID, credential_json)
+            return 200
+        except GoogleSheetsError as error:
+            return error.status_code
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        outcomes = list(executor.map(connect, services))
+    assert sorted(outcomes) == [200, 409, 409]
+    assert sum(service._path.exists() for service in services) == 1
+
+
+def test_unreadable_other_connection_blocks_reuse_without_exposing_private_settings(
+    tmp_path, credential_json
+):
+    directory = tmp_path / ".google-sheets"
+    directory.mkdir()
+    (directory / "connection.json").write_text("PRIVATE-CREDENTIAL-MATERIAL", encoding="utf-8")
+    service = GoogleSheetsService(tmp_path, destination="profiles")
+    with pytest.raises(GoogleSheetsError) as caught:
+        service.configure(SPREADSHEET_ID, credential_json)
+    assert caught.value.status_code == 409
+    assert "PRIVATE-CREDENTIAL-MATERIAL" not in caught.value.message
+    assert service.status()["configured"] is False
+    GoogleSheetsService(tmp_path).disconnect()
+    assert service.configure(SPREADSHEET_ID, credential_json)["configured"] is True
+
+
+@pytest.mark.parametrize("destination", ["combined", "../connection", "unknown"])
+def test_invalid_destination_cannot_select_arbitrary_configuration_path(tmp_path, destination):
+    with pytest.raises(GoogleSheetsError) as caught:
+        GoogleSheetsService(tmp_path, destination=destination)
+    assert caught.value.status_code == 422
+    assert not (tmp_path / ".google-sheets").exists()
+
+
+def test_service_cache_is_partitioned_by_data_directory_and_destination(tmp_path, monkeypatch):
+    import app.db
+
+    monkeypatch.setattr(app.db, "DB_PATH", tmp_path / "cathedra.db")
+    first = sheets.get_google_sheets_destination_service("profiles")
+    assert sheets.get_google_sheets_destination_service("profiles") is first
+    assert sheets.get_google_sheets_destination_service("workloads") is not first
+    assert sheets.get_google_sheets_service() is not first
+    monkeypatch.setattr(app.db, "DB_PATH", tmp_path / "other-data" / "cathedra.db")
+    assert sheets.get_google_sheets_destination_service("profiles") is not first
+
+
+@pytest.mark.parametrize("destination", [None, "workloads", "overload", "profiles"])
+def test_unreadable_saved_destination_offers_safe_disconnect_recovery(tmp_path, destination):
+    service = GoogleSheetsService(tmp_path, destination=destination)
+    assert service.status()["configured"] is False
+    service._directory.mkdir()
+    service._path.write_text("SYNTHETIC-PRIVATE-MATERIAL", encoding="utf-8")
+    service = GoogleSheetsService(tmp_path, destination=destination)
+    status = service.status()
+    assert status["configured"] is True
+    assert status["ready"] is False
+    assert status["service_account_email"] is None
+    assert status["spreadsheet_id"] is None
+    assert "Reconnect" in status["message"]
+    assert "SYNTHETIC-PRIVATE-MATERIAL" not in json.dumps(status)
+    assert service.disconnect()["configured"] is False
+    assert not service._path.exists()
+
+
+def test_connection_file_symlink_disconnect_keeps_its_target(tmp_path):
+    target = tmp_path / "private-target.json"
+    target.write_text("SYNTHETIC-PRIVATE-MATERIAL", encoding="utf-8")
+    service = GoogleSheetsService(tmp_path, destination="profiles")
+    service._directory.mkdir()
+    try:
+        service._path.symlink_to(target)
+    except OSError:
+        pytest.skip("Creating symbolic links requires OS permissions")
+    restored = GoogleSheetsService(tmp_path, destination="profiles")
+    assert restored.status()["configured"] is True
+    assert restored.status()["ready"] is False
+    assert "SYNTHETIC-PRIVATE-MATERIAL" not in json.dumps(restored.status())
+    restored.disconnect()
+    assert not restored._path.is_symlink()
+    assert target.read_text(encoding="utf-8") == "SYNTHETIC-PRIVATE-MATERIAL"
+
+
+def test_linked_settings_directory_is_not_followed_when_disconnecting(tmp_path):
+    target = tmp_path / "other-private-settings"
+    target.mkdir()
+    selected = target / "connection-profiles.json"
+    selected.write_text("SYNTHETIC-PRIVATE-MATERIAL", encoding="utf-8")
+    service = GoogleSheetsService(tmp_path, destination="profiles")
+    try:
+        service._directory.symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("Creating symbolic links requires OS permissions")
+    restored = GoogleSheetsService(tmp_path, destination="profiles")
+    assert restored.status()["configured"] is True
+    assert restored.status()["ready"] is False
+    with pytest.raises(GoogleSheetsError) as caught:
+        restored.disconnect()
+    assert caught.value.status_code == 409
+    assert selected.read_text(encoding="utf-8") == "SYNTHETIC-PRIVATE-MATERIAL"
+    assert service._directory.is_symlink()
