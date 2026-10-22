@@ -55,7 +55,7 @@ function Get-PlainFiles([string]$Folder) {
         throw "Office data or test artifacts must not enter a release: $relative"
       }
       if ($entry.PSIsContainer) { $pending.Push($entry.FullName); continue }
-      if ($relative -match '(?i)\.(db|sqlite|sqlite3|csv|xlsx?|bak|backup|log|pem|key|pfx)(-|$)' -and $relative -ne '_internal/backend/cathedra-seed.db') {
+      if ($relative -match '(?i)\.(db|sqlite|sqlite3|csv|xlsx?|bak|backup|log|pem|key|pfx)(-|$)' -and $relative -notin @('_internal/backend/cathedra-seed.db', '_internal/certifi/cacert.pem')) {
         throw "Office data or private files must not enter a release: $relative"
       }
       $entry

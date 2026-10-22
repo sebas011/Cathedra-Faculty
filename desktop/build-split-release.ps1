@@ -58,7 +58,7 @@ try {
 } finally { Pop-Location }
 & $Python (Join-Path $root 'backend/create_install_seed.py') $seed
 if ($LASTEXITCODE -ne 0) { throw 'Clean seed verification failed.' }
-& $Python -m PyInstaller --noconfirm --clean --noconsole --onedir --name $name --distpath $ReleaseRoot --workpath (Join-Path $PSScriptRoot 'build/pyinstaller') --specpath $PSScriptRoot --paths (Join-Path $root 'backend') --add-data "$(Join-Path $frontend 'dist');frontend/dist" --add-data "$seed;backend" --add-data "$(Join-Path $root 'VERSION');." --add-data "$(Join-Path $root 'APP_PRODUCT');." --add-data "$(Join-Path $root 'BUILD_ID');." (Join-Path $PSScriptRoot 'run_cathedra.py')
+& $Python -m PyInstaller --noconfirm --clean --noconsole --onedir --name $name --distpath $ReleaseRoot --workpath (Join-Path $PSScriptRoot 'build/pyinstaller') --specpath $PSScriptRoot --paths (Join-Path $root 'backend') --add-data "$(Join-Path $frontend 'dist');frontend/dist" --add-data "$seed;backend" --add-data "$(Join-Path $root 'VERSION');." --add-data "$(Join-Path $root 'APP_PRODUCT');." --add-data "$(Join-Path $root 'BUILD_ID');." --add-data "$(Join-Path $root 'docs/GOOGLE_SHEETS_SETUP.md');docs" (Join-Path $PSScriptRoot 'run_cathedra.py')
 if ($LASTEXITCODE -ne 0) { throw 'Packaging failed.' }
 $packageDesktop = Join-Path $ReleaseRoot "$name/desktop"
 New-Item -ItemType Directory -Path $packageDesktop -Force | Out-Null

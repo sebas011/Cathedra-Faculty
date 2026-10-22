@@ -21,6 +21,9 @@ def source_snapshot(root: Path) -> str:
         for pattern in patterns:
             paths.update((root / folder).glob(pattern))
     paths.update(root / name for name in ("VERSION", "APP_PRODUCT"))
+    guide = root / "docs" / "GOOGLE_SHEETS_SETUP.md"
+    if guide.is_file():
+        paths.add(guide)
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(path.relative_to(root).as_posix().encode())

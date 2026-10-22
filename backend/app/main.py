@@ -14,6 +14,7 @@ from app.api.auth import router as auth_router
 from app.api.closeout import router as closeout_router
 from app.api.expenses import router as expenses_router
 from app.api.faculty_profiles import router as faculty_profiles_router
+from app.api.google_sheets import router as google_sheets_router
 from app.api.maintenance import router as maintenance_router
 from app.api.qualification_rates import router as qualification_rates_router
 from app.api.verification import router as verification_router
@@ -122,6 +123,7 @@ app.include_router(
 )
 app.include_router(workload_router, prefix="/api/v1", dependencies=[Depends(require_signed_in)])
 app.include_router(maintenance_router, prefix="/api/v1", dependencies=[Depends(require_signed_in)])
+app.include_router(google_sheets_router, prefix="/api/v1")
 app.include_router(expenses_router, prefix="/api/v1", dependencies=[Depends(require_signed_in)])
 app.include_router(closeout_router, prefix="/api/v1", dependencies=[Depends(require_signed_in)])
 app.include_router(activity_router, prefix="/api/v1", dependencies=[Depends(require_signed_in)])

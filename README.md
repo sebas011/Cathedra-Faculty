@@ -29,9 +29,24 @@ the existing app and transfer that backup privately; restore it in the office ap
 Restoring replaces the destination records and accounts, so preserve a backup of
 that destination first. Computers do not synchronize automatically.
 
+## Update a Google Sheet
+
+In **Backup & Export**, administrators can connect a Google Sheet and click
+**Update Google Sheet** to send the latest saved business data. One-time setup
+uses a dedicated Google service account shared as an editor on your spreadsheet.
+Read the [detailed setup guide](docs/GOOGLE_SHEETS_SETUP.md), also downloadable
+from the app's Google Sheets card.
+
+The update creates twelve app-managed Cathedra tabs, preserves other tabs, and
+replaces each exported snapshot without leaving old rows behind. Existing tabs
+with the same names must carry the app's ownership marker before they can be
+updated. Salary and financial summaries are included; accounts, sessions, keys
+and activity logs are excluded. The connection stays on the current PC and must
+be configured separately on another PC. No Google credentials ship in this app.
+
 ## Repository scope
 
-This is a clean publication of the current application source (version 0.3.3,
+This is a clean publication of the current application source (version 0.3.4,
 schema 24). It includes backend and frontend runtime code, synthetic application
 tests, dependency locks, the desktop launcher, packaging and Windows CI workflows.
 

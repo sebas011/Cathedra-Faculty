@@ -71,6 +71,24 @@ try {
   $session = Invoke-RestMethod -Method Post -Uri "$api/auth/setup" -Headers $setupHeaders -ContentType 'application/json' -Body $credentials
   $setupHeaders.Clear()
   $headers = @{ Authorization = "Bearer $($session.token)" }
+  $sheetsApi = "$api/maintenance/google-sheets"
+  $sheetsStatus = Invoke-RestMethod -Uri $sheetsApi -Headers $headers
+  if ($sheetsStatus.configured) { throw 'The clean package unexpectedly contains a Google Sheets connection.' }
+  $sheetsGuide = Invoke-WebRequest -Uri "$sheetsApi/setup-guide" -Headers $headers
+  if ($sheetsGuide.StatusCode -ne 200 -or $sheetsGuide.Content -notmatch 'Update Google Sheet') { throw 'The packaged Google Sheets setup guide is unavailable.' }
+  # Validate bundled Google authentication/cryptography without contacting Google.
+  $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+  try { $syntheticKey = $rsa.ExportPkcs8PrivateKeyPem() } finally { $rsa.Dispose() }
+  $syntheticCredentials = @{
+    type = 'service_account'; project_id = 'cathedra-packaging-test'
+    client_email = 'packaging-check@cathedra-packaging-test.iam.gserviceaccount.com'
+    private_key = $syntheticKey; token_uri = 'https://oauth2.googleapis.com/token'
+  } | ConvertTo-Json
+  $sheetsConfigured = Invoke-RestMethod -Method Put -Uri $sheetsApi -Headers $headers -ContentType 'application/json' -Body (@{spreadsheet_url='cathedra-packaging-test-spreadsheet';service_account_json=$syntheticCredentials} | ConvertTo-Json)
+  if (-not $sheetsConfigured.configured -or $sheetsConfigured.service_account_email -ne 'packaging-check@cathedra-packaging-test.iam.gserviceaccount.com') { throw 'Packaged Google authentication dependencies could not validate a synthetic key.' }
+  Invoke-RestMethod -Method Delete -Uri $sheetsApi -Headers $headers | Out-Null
+  $syntheticCredentials = $null; $syntheticKey = $null
+  if ((Invoke-RestMethod -Uri $sheetsApi -Headers $headers).configured) { throw 'The temporary Google connection was not removed.' }
   $facultyInput = @{
     name = 'Release Check Faculty'; rank = 'Instructor I'; employment_status = 'Full-time'
     college = 'CAS'; department = 'BSAM'

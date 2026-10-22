@@ -52,3 +52,9 @@ docs/audit-*.json
 *.p12
 *.bak
 *.backup
+
+# Google connection material and private setup notes.
+.google-sheets/
+*service-account*.json
+google-credentials*.json
+docs/GOOGLE_SHEETS_MY_SETUP_*.md
