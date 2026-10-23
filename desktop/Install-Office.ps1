@@ -92,14 +92,19 @@ function Assert-RelativeFile([string]$Path, [bool]$OfficeWrapper = $false) {
   }
 }
 
-function Read-Manifest([string]$Path, [string[]]$Required) {
+function Read-Manifest([string]$Path, [string[]]$Required, [bool]$Installed = $false) {
   try {
     $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     foreach ($name in $Required) {
       if ($null -eq $manifest -or $null -eq $manifest.PSObject.Properties[$name]) { throw 'Missing manifest field.' }
     }
     return $manifest
-  } catch { throw "The release manifest is invalid: $Path. Download and extract the complete office ZIP again; keep all existing office files." }
+  } catch {
+    if ($Installed) {
+      throw "The existing installation manifest cannot be verified: $Path. Keep the complete installed folder and data unchanged. Use an official migration package for this installed version; do not edit the manifest."
+    }
+    throw "The release manifest is invalid: $Path. Download and extract the complete office ZIP again; keep all existing office files."
+  }
 }
 
 function Assert-EntryFields($Entry) {
@@ -108,15 +113,28 @@ function Assert-EntryFields($Entry) {
   }
 }
 
-function Verify-Payload([string]$Folder, [bool]$AllowData) {
+function Verify-Payload([string]$Folder, [bool]$AllowData, [bool]$AllowLegacyInstalled = $false) {
   Assert-NoLinkedAncestors $Folder
   if (-not (Test-Path -LiteralPath $Folder -PathType Container)) { throw "Application folder is missing: $Folder" }
   $manifestPath = Join-Path $Folder 'release-manifest.json'
   Assert-NoLinkedAncestors $manifestPath
   if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw "A valid release-manifest.json is required in $Folder. No existing files were replaced." }
-  $manifest = Read-Manifest $manifestPath @('product', 'version', 'build_identity', 'source_snapshot_sha256', 'files')
+  $manifest = Read-Manifest $manifestPath @('product', 'version', 'files') $AllowData
+  $hasBuildIdentity = $null -ne $manifest.PSObject.Properties['build_identity']
+  $hasSourceIdentity = $null -ne $manifest.PSObject.Properties['source_snapshot_sha256']
+  # The authentic 0.3.2 format predates both fields and the BUILD_ID file.
+  # This exception applies only to an existing installation, including rollback.
+  # Never synthesize identities or accept this format as an incoming package.
+  $legacy = $AllowData -and $AllowLegacyInstalled -and $manifest.version -ceq '0.3.2' -and
+    -not $hasBuildIdentity -and -not $hasSourceIdentity
+  if (-not $legacy) {
+    $manifest = Read-Manifest $manifestPath @('product', 'version', 'build_identity', 'source_snapshot_sha256', 'files') $AllowData
+    if (-not $manifest.build_identity -or $manifest.source_snapshot_sha256 -notmatch '^[a-fA-F0-9]{64}$') {
+      throw 'Invalid Cathedra Faculty build identity. Keep the installed application and records; obtain a complete official release.'
+    }
+  }
   if ($manifest.product -cne 'faculty' -or $manifest.version -notmatch '^\d+\.\d+\.\d+$' -or
-      -not $manifest.build_identity -or -not @($manifest.files).Count) { throw 'Invalid Cathedra Faculty release manifest.' }
+      -not @($manifest.files).Count) { throw 'Invalid Cathedra Faculty release manifest.' }
   $expected = @{}
   foreach ($entry in $manifest.files) {
     Assert-EntryFields $entry
@@ -129,8 +147,10 @@ function Verify-Payload([string]$Folder, [bool]$AllowData) {
     if (-not (Is-Within $full $Folder)) { throw 'The manifest contains a path outside the application folder.' }
     $expected[$entry.path] = $entry
   }
-  foreach ($essential in @('Cathedra Faculty.exe', '_internal/VERSION', '_internal/BUILD_ID', '_internal/APP_PRODUCT',
-      '_internal/frontend/dist/release-version.txt', '_internal/backend/cathedra-seed.db', 'desktop/protect-local-folder.ps1')) {
+  $essentials = @('Cathedra Faculty.exe', '_internal/VERSION', '_internal/APP_PRODUCT',
+      '_internal/frontend/dist/release-version.txt', '_internal/backend/cathedra-seed.db', 'desktop/protect-local-folder.ps1')
+  if (-not $legacy) { $essentials += '_internal/BUILD_ID' }
+  foreach ($essential in $essentials) {
     if (-not $expected.ContainsKey($essential)) { throw "The application manifest is incomplete: $essential" }
   }
   $found = @{}
@@ -149,10 +169,12 @@ function Verify-Payload([string]$Folder, [bool]$AllowData) {
   }
   if ($found.Count -ne $expected.Count) { throw 'Application files are missing. Download and extract the complete ZIP again.' }
   if ((Get-Content -LiteralPath (Join-Path $Folder '_internal/VERSION') -Raw).Trim() -cne $manifest.version -or
-      (Get-Content -LiteralPath (Join-Path $Folder '_internal/BUILD_ID') -Raw).Trim() -cne $manifest.build_identity -or
       (Get-Content -LiteralPath (Join-Path $Folder '_internal/APP_PRODUCT') -Raw).Trim() -cne 'faculty' -or
       (Get-Content -LiteralPath (Join-Path $Folder '_internal/frontend/dist/release-version.txt') -Raw).Trim() -cne $manifest.version) {
     throw 'The application, frontend, and release manifest identities do not match.'
+  }
+  if (-not $legacy -and (Get-Content -LiteralPath (Join-Path $Folder '_internal/BUILD_ID') -Raw).Trim() -cne $manifest.build_identity) {
+    throw 'The application build identity does not match its release manifest.'
   }
   return $manifest
 }
@@ -277,7 +299,11 @@ try {
   $existing = Test-Path -LiteralPath $InstallFolder
   if ($existing) {
     Assert-AppClosed $InstallFolder
-    $installed = Verify-Payload $InstallFolder $true
+    $installed = Verify-Payload $InstallFolder $true $true
+    if ($null -eq $installed.PSObject.Properties['build_identity']) {
+      Write-Host 'Recognized the original Cathedra Faculty 0.3.2 format. All recorded application checksums passed.'
+      Write-Host 'The complete old application and data will be backed up before updating. The old manifest will be kept unchanged.'
+    }
     if ([version]$installed.version -gt [version]$release.version) { throw "A newer Cathedra $($installed.version) is installed. Installing an older version is blocked to protect your records." }
     $data = Join-Path $InstallFolder 'data'
     $hadData = Test-Path -LiteralPath $data -PathType Container
@@ -357,7 +383,8 @@ try {
         [IO.Directory]::CreateDirectory($failedApp) | Out-Null
         foreach ($name in $newPromoted) { Move-RootItem (Join-Path $InstallFolder $name) (Join-Path $failedApp $name) }
         foreach ($name in $oldMoved) { Move-RootItem (Join-Path $oldApp $name) (Join-Path $InstallFolder $name) }
-        Verify-Payload $InstallFolder $true | Out-Null
+        Verify-Payload $InstallFolder $true $true | Out-Null
+        Assert-SameTree $before $InstallFolder
         if ($hadData) { Assert-SameTree $originalData (Join-Path $InstallFolder 'data') }
         Write-Host 'Your previous application and records have been restored.'
       } elseif (-not $existing -and (Test-Path -LiteralPath $InstallFolder)) {

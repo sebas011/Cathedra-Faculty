@@ -29,6 +29,18 @@ the existing app and transfer that backup privately; restore it in the office ap
 Restoring replaces the destination records and accounts, so preserve a backup of
 that destination first. Computers do not synchronize automatically.
 
+## Updating from the original 0.3.2 installation
+
+Use **v0.3.5-office.2** or a later corrected release. The original 0.3.2 manifest
+legitimately lacks build identities and BUILD_ID; the first office.1 installer
+incorrectly rejects it. The corrected installer verifies its old checksums,
+backs up the complete application and data privately, and preserves the original
+manifest in the recovery copy. Download/extract the whole corrected ZIP; do not
+edit old manifests or replace one script inside an earlier ZIP.
+
+Read the [step-by-step 0.3.2 migration guide](docs/UPGRADE_FROM_032.md), including
+first-start database migration, existing-account sign-in and complete recovery.
+
 ## Update three separate Google Sheets
 
 Administrators can connect three different spreadsheets under **Backup & Export**:

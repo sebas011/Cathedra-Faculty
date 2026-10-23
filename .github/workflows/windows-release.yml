@@ -154,6 +154,8 @@ jobs:
 
           The ZIP includes the Windows application and an empty installation database. Python, Node.js, and developer tools are not required on the office computer. Existing office records remain in their separate data folder.
 
+          This installer supports the original 0.3.2 manifest format. It verifies the old application and creates a complete private recovery copy before updating. Do not edit the installed manifest or replace individual files in an older extracted ZIP. Read the [0.3.2 migration guide](https://github.com/$env:GH_REPO/blob/$env:SOURCE_COMMIT/docs/UPGRADE_FROM_032.md).
+
           Application version: $env:RELEASE_VERSION
           Source commit: $env:SOURCE_COMMIT
           SHA256: $checksum

@@ -16,6 +16,13 @@ The application installs in your Windows user folder under Cathedra-Faculty.
 For example: C:\Users\YourName\Cathedra-Faculty\Cathedra Faculty.exe
 
 UPDATING THE SAME COMPUTER
+The corrected v0.3.5-office.2 installer supports the original 0.3.2 manifest,
+which legitimately has no build_identity, source_snapshot_sha256 or BUILD_ID.
+It verifies every old file before accepting that installed-only legacy format.
+Do not edit the old manifest or replace a single script in an older ZIP.
+Read the official migration guide:
+https://github.com/sebas011/Cathedra-Faculty/blob/main/docs/UPGRADE_FROM_032.md
+
 Download and extract the new office ZIP, close Cathedra, and run the same
 installer. Existing records, settings, passwords, and the data folder are
 preserved. The installer checks every application file and saves a verified,
@@ -24,6 +31,9 @@ before replacement. Keep the backup folder; its location is shown on screen.
 If an existing installation is newer, incomplete, changed, or still in use,
 installation stops with a message. Do not delete your old data to work around
 an error. A failed application replacement restores the previous application.
+The first app startup upgrades the existing database. If returning to 0.3.2
+after that startup, restore the matching old application AND data from the
+private recovery copy; preserve newer work separately first.
 
 MOVING OFFICE RECORDS TO ANOTHER COMPUTER
 This public download contains no office records or saved passwords. Installing
