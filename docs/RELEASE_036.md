@@ -18,6 +18,8 @@ reports and financial planning.
   verification, recovery and the three Google Sheets destinations.
 - Mobile control sizing, keyboard focus, reduced-motion support, and a dashboard
   print baseline that preserves textual figures without oversized SVG icons.
+- Build dependency setuptools is pinned to 84.1.0, the patched version for the
+  [Windows legacy-wheel installation advisory](https://github.com/advisories/GHSA-xmj3-9gf7-h52w).
 
 Existing calculation rules, approval states, optimistic concurrency, unsaved-edit
 confirmations and backend authorization remain unchanged. The database schema is
@@ -26,7 +28,7 @@ still **24**; this release adds no database migration.
 ## Install or update
 
 Download the complete Windows ZIP from the
-[0.3.6 release](https://github.com/sebas011/Cathedra-Faculty/releases/tag/v0.3.6-office.1),
+[0.3.6 release](https://github.com/sebas011/Cathedra-Faculty/releases/tag/v0.3.6-office.2),
 extract all files and run **Install-or-Update.cmd**. Close Cathedra first. The
 installer verifies the application and creates a complete private recovery copy
 before replacing it; existing records and accounts stay in their data folder.
