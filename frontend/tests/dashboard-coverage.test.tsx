@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   getCurrentUser: vi.fn(), getWorkloadSummary: vi.fn(), getWorkloadReview: vi.fn(),
   getProjectionReadiness: vi.fn(), getActiveProjectionPeriod: vi.fn(),
   getMonthlySalaryProjection: vi.fn(), getSemesterOverloadBudgets: vi.fn(),
+  getActivityPage: vi.fn(),
 }));
 vi.mock("../src/api", () => api);
 
@@ -19,6 +20,7 @@ beforeEach(() => {
   api.getProjectionReadiness.mockResolvedValue({ items: [] });
   api.getActiveProjectionPeriod.mockResolvedValue({ academic_year: "2026-2027", term: "First Semester" });
   api.getSemesterOverloadBudgets.mockResolvedValue([{ academic_year: "2026-2027", term: "First Semester", amount: 1000 }]);
+  api.getActivityPage.mockResolvedValue({ items: [], total: 0 });
 });
 
 test.each([false, true])("dashboard distinguishes confirmed zero from missing coverage (provisional=%s)", async (provisional) => {
@@ -35,4 +37,14 @@ test.each([false, true])("dashboard distinguishes confirmed zero from missing co
   const remaining = screen.getByText(provisional ? "Indicative budget remaining" : "budget remaining");
   expect(remaining.closest("article")?.querySelector("strong")?.textContent)
     .toBe(provisional ? "Not available" : "₱1,000.00");
+});
+
+test("staff dashboard does not fetch administrator finances or activity", async () => {
+  api.getCurrentUser.mockReturnValue({ ...administrator, role: "staff" });
+  render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+  await screen.findByText("You’re up to date with these checks.");
+  expect(api.getActivityPage).not.toHaveBeenCalled();
+  expect(api.getMonthlySalaryProjection).not.toHaveBeenCalled();
+  expect(api.getSemesterOverloadBudgets).not.toHaveBeenCalled();
+  expect(screen.queryByText("Recent activity")).toBeNull();
 });

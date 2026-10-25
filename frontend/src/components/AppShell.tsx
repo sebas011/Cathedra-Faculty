@@ -4,6 +4,7 @@ import { BackupIcon, CalendarIcon, CloseoutIcon, DashboardIcon, DirectoryIcon, E
 import { Suspense, useEffect, useRef, useState } from "react";
 import { clearSession, exitDesktop, getCurrentUser, getServiceHealth, releaseVersion, signOut } from "../api";
 import PageSkeleton from "./PageSkeleton";
+import WorkspaceSearch from "./WorkspaceSearch";
 import { product, productName } from "../product";
 
 const navigation = [
@@ -103,7 +104,7 @@ export default function AppShell() {
         <div className="brand">
           <button className="sidebar-collapse-toggle" onClick={() => { if (open) { setOpen(false); menuButton.current?.focus(); } else setCollapsed(value => !value); }} aria-label={open ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={open || !collapsed}><MenuIcon /></button>
           <div className="brand-mark" aria-hidden="true">C<span className="brand-mark-dot" /></div>
-          <div className="brand-copy"><strong>{productName}</strong><span>Faculty administration</span></div>
+          <div className="brand-copy"><strong>Cathedra</strong><span>Faculty workspace</span></div>
         </div>
         <nav className="nav-list" aria-label="Main navigation">
           {navigationGroups.map((group) => <div className="nav-group" key={group.label}>
@@ -120,8 +121,9 @@ export default function AppShell() {
       <div className="workspace">
         <header className="topbar">
           <button ref={menuButton} className="mobile-menu" onClick={() => setOpen(true)} aria-label="Open menu" aria-expanded={open} aria-controls="main-sidebar"><MenuIcon /></button>
-          <div className="topbar-title"><span>Office workspace <span aria-hidden="true">/</span></span><strong>{currentPage}</strong></div>
+          <div className="topbar-title"><span>{productName} <span aria-hidden="true">/</span></span><strong>{currentPage}</strong></div>
           <div className="account-box">
+            <WorkspaceSearch destinations={navigation.filter(item => !item.adminOnly || user?.role === "admin")} />
             {!location.pathname.startsWith("/reports") && <button className="logout-button no-print" onClick={() => window.print()}><span>Print This Page</span></button>}
             <div className="avatar">{user?.username.slice(0, 1).toUpperCase() || "A"}</div>
             <div className="account-copy"><strong>{user?.username || "Administrator"}</strong><span>{user?.role === "admin" ? "Administrator" : "Staff"}</span></div>

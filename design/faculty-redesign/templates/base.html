@@ -1,0 +1,48 @@
+{# Jinja-style server template; configure autoescaping for every .html template. #}
+{% macro icon(name, classes="h-5 w-5") -%}
+<svg class="{{ classes }} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icon-{{ name }}"></use></svg>
+{%- endmacro %}
+{% macro status(text, tone="neutral") -%}
+{% set tones = {"success":"bg-success-soft text-success", "warning":"bg-warning-soft text-warning", "danger":"bg-danger-soft text-danger", "info":"bg-cobalt-soft text-cobalt", "neutral":"bg-slate-100 text-slate-700"} %}
+<span class="status-pill {{ tones.get(tone, tones.neutral) }}">{{ text }}</span>
+{%- endmacro %}
+{% macro field(name, label, value="", type="text", required=false, error="", help="", readonly=false) -%}
+<label class="field" for="{{ name }}"><span>{{ label }}{% if required %} <span aria-hidden="true">*</span><span class="sr-only"> (required)</span>{% endif %}</span>
+<input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}" {% if required %}required{% endif %} {% if readonly %}readonly{% endif %} {% if error %}aria-invalid="true"{% endif %} {% if error or help %}aria-describedby="{{ name }}-description"{% endif %}>
+{% if error or help %}<span id="{{ name }}-description" class="{{ 'field-error' if error else 'field-help' }}">{{ error or help }}</span>{% endif %}</label>
+{%- endmacro %}
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% block title %}Faculty workspace{% endblock %} · Cathedra</title>
+<link rel="stylesheet" href="/assets/cathedra-redesign.css">
+{# Vendored HTMX is an adapter dependency; no remote CDN or secret in this document. #}
+<script src="/assets/vendor/htmx.min.js" defer></script>
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"historyCacheSize":0}'>
+</head>
+<body>
+<a href="#workspace-content" class="sr-only z-50 rounded-md bg-white px-4 py-3 text-cobalt focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to page content</a>
+<svg xmlns="http://www.w3.org/2000/svg" class="hidden" aria-hidden="true"><defs>
+<symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="icon-people" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-4a6 6 0 0 1 12 0v4M16 4a3 3 0 0 1 0 6M17 13a5 5 0 0 1 4 5v3"/></symbol>
+<symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v14a3 3 0 0 0-3-3H4zM14 7a3 3 0 0 1 3-3h4v14h-4a3 3 0 0 0-3 3"/></symbol>
+<symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+<symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+</defs></svg>
+<aside class="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-ink text-white lg:flex" aria-label="Workspace sidebar">
+<a href="/" class="flex min-h-24 items-center gap-3 px-6 no-underline"><span class="grid h-10 w-10 place-items-center rounded-lg bg-apricot font-display text-3xl text-ink" aria-hidden="true">c</span><span><strong class="block text-lg font-semibold tracking-tight">Cathedra</strong><span class="text-xs text-slate-400">Faculty operations</span></span></a>
+<nav aria-label="Main navigation" class="flex-1 space-y-6 overflow-y-auto px-4 pb-6">
+{% for group in navigation_groups %}<div><p class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[.16em] text-slate-400">{{ group.label }}</p>
+{% for item in group["items"] if not item.admin_only or user.role == 'admin' %}<a href="{{ item.href }}" class="nav-link" {% if item.active %}aria-current="page"{% endif %}>{{ icon(item.icon) }}<span>{{ item.label }}</span></a>{% endfor %}</div>{% endfor %}
+</nav><div class="border-t border-white/10 px-7 py-5 text-xs leading-6 text-slate-400"><p class="text-slate-200">Local office workspace</p><p>Cathedra {{ release_version }}</p></div></aside>
+<div class="min-h-screen lg:pl-[248px]">
+<header class="flex min-h-20 flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-5 py-4 md:px-8">
+<div class="flex items-center gap-4"><details class="relative lg:hidden"><summary class="btn btn-secondary cursor-pointer">Menu</summary><nav aria-label="Mobile navigation" class="absolute left-0 top-14 z-40 grid w-64 gap-1 rounded-xl border border-line bg-ink p-4 shadow-xl">{% for group in navigation_groups %}{% for item in group["items"] if not item.admin_only or user.role == 'admin' %}<a class="nav-link" href="{{ item.href }}" {% if item.active %}aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}{% endfor %}</nav></details><p class="text-xs text-muted">Faculty workspace <span aria-hidden="true" class="mx-3 text-slate-300">/</span><span class="font-semibold text-ink">{{ page_name }}</span></p></div>
+<div class="flex items-center gap-3"><span class="hidden text-xs text-muted sm:inline">{{ user.role_label }}</span><span class="grid h-9 w-9 place-items-center rounded-full bg-cobalt-soft font-semibold text-cobalt" aria-hidden="true">{{ user.initials }}</span><span class="max-w-36 truncate text-sm font-semibold">{{ user.username }}</span><a href="/settings/accounts" class="btn btn-quiet">Account</a></div>
+</header>
+<main id="workspace-content" tabindex="-1" class="mx-auto max-w-[1600px] space-y-7 p-5 outline-none md:p-8 xl:p-10">
+{% if flash_message %}<p class="rounded-lg border border-line bg-white px-4 py-3" role="status">{{ flash_message }}</p>{% endif %}
+{% if page_error %}<div class="rounded-lg border border-red-200 bg-danger-soft p-4 text-danger" role="alert"><strong class="block">This view could not be loaded.</strong><p class="mt-1">{{ page_error }}</p><a href="{{ request_path }}" class="btn btn-secondary mt-3">Try again</a></div>{% endif %}
+{% block content %}{% endblock %}
+</main></div>
+</body></html>

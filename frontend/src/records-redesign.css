@@ -1,0 +1,108 @@
+/* Record workspaces share the new visual system without altering report print rules. */
+@media screen {
+  .page .data-card:is(.directory-table-card,.workload-table-card) { padding:24px; }
+  .record-table-heading { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0 22px; }
+  .record-table-heading h2 { margin:5px 0 0;font-size:20px;letter-spacing:-.035em;color:var(--ui-ink,#182231); }
+  .record-count-label { flex-shrink:0;border:1px solid var(--ui-line,#dde2e8);padding:6px 10px;border-radius:5px;color:var(--ui-muted,#607084);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--ui-canvas,#f6f7f4); }
+  .record-table-meta { display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--ui-muted,#607084);font-size:12px; }
+  .record-table-meta > span:last-child { text-align:right; }
+  .record-scroll-hint { display:none; }
+  .record-identity { display:flex;align-items:center;gap:12px;min-width:230px; }
+  .record-avatar { display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;border-radius:9px;background:var(--ui-accent-soft,#edf0ff);border:1px solid #dce3fd;color:var(--ui-accent,#3154d9);font-size:11px;font-weight:750;letter-spacing:.02em; }
+  .record-identity .person-cell { min-width:0;gap:5px; }
+  .record-identity .person-cell > span { display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:12px;line-height:1.45;color:var(--ui-muted,#607084); }
+  .record-identity .faculty-profile-link { color:var(--ui-ink,#182231);font-weight:650;font-size:14px;line-height:1.5; }
+  .record-identity .faculty-profile-link:hover { color:var(--ui-accent,#3154d9);text-decoration:underline;text-underline-offset:4px; }
+  .record-status-dot { width:5px;height:5px;flex-shrink:0;margin-right:2px;border-radius:50%;background:#9b7380; }
+  .record-status-dot.is-active { background:#247052; }
+  .faculty-directory-page .directory-toolbar { padding:16px 0;gap:12px;align-items:flex-end;border-top:1px solid var(--ui-line,#dde2e8); }
+  .faculty-directory-page .directory-toolbar .search-wrap { flex:1;min-width:220px; }
+  .faculty-directory-page .directory-toolbar label { min-width:160px; }
+  .faculty-directory-page .directory-table-card .table-scroll,
+  .workload-page .workload-table-card .table-scroll { border:1px solid var(--ui-line,#dde2e8);border-radius:6px;overscroll-behavior-x:contain; }
+  .faculty-directory-page .directory-table-card table td,
+  .workload-page .workload-table-card table td { padding:16px;vertical-align:middle; }
+  .faculty-directory-page .directory-table-card table th,
+  .workload-page .workload-table-card table th { padding:12px 16px; }
+  .faculty-directory-page .directory-table-card .action-group,
+  .workload-page .workload-table-card .action-group { gap:6px; }
+  .faculty-directory-page .directory-table-card .action-group .btn,
+  .workload-page .workload-table-card .action-group .btn { min-height:34px;padding:6px 10px;font-size:12px;white-space:nowrap; }
+  .faculty-directory-page .directory-table-card .form-actions,
+  .workload-page .workload-table-card .form-actions { margin-top:18px; }
+  .record-filter-panel .section-heading { display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px; }
+  .record-filter-panel .section-heading h2 { margin:0;font-size:16px; }
+  .record-filter-panel .section-heading p { margin:5px 0 0;font-size:12px;color:var(--ui-muted,#607084); }
+  .record-filter-state { color:var(--ui-accent,#3154d9);font-weight:650;font-size:12px;white-space:nowrap; }
+  .record-filter-panel .workload-toolbar { display:flex;flex-wrap:wrap;gap:10px;align-items:center; }
+  .record-filter-panel .workload-toolbar > input { flex:1;min-width:145px; }
+  .record-filter-panel .workload-toolbar > select { min-width:140px;flex:1; }
+  .record-filter-panel .workload-toolbar .search-wrap { min-width:240px;flex:2; }
+  .record-editor .record-fieldset { border:0;border-top:1px solid var(--ui-line,#dde2e8);margin:24px 0 0;padding:20px 0 0;min-width:0; }
+  .record-fieldset > legend { display:flex;align-items:center;gap:10px;padding:0 12px 0 0;color:var(--ui-ink,#182231);font-size:15px;font-weight:650; }
+  .record-fieldset > legend > span { color:var(--ui-accent,#3154d9);font-size:11px;letter-spacing:.08em; }
+  .record-section-hint { color:var(--ui-muted,#607084);font-size:12px;line-height:1.6;margin:0 0 20px; }
+  .record-editor .record-fieldset > .record-section-hint { margin-top:3px; }
+  .record-editor-actions { display:flex;align-items:center;gap:10px;border-top:1px solid var(--ui-line,#dde2e8);padding:20px 0 0;margin-top:24px; }
+  .record-save-note { flex:1;margin-right:auto;color:var(--ui-muted,#607084);font-size:12px;line-height:1.6; }
+  .record-step-nav { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;padding:1px;background:var(--ui-line,#dde2e8);border:1px solid var(--ui-line,#dde2e8);border-radius:8px;overflow:hidden; }
+  .record-step-nav > a { display:grid;grid-template-columns:32px 1fr;gap:4px 12px;align-items:center;padding:18px 20px;background:#fff;color:var(--ui-ink,#182231);text-decoration:none; }
+  .record-step-nav > a > span { grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;background:var(--ui-accent-soft,#edf0ff);color:var(--ui-accent,#3154d9);border-radius:6px;font-size:11px;font-weight:700; }
+  .record-step-nav > a > strong { font-size:13px;line-height:1.5; }
+  .record-step-nav > a > small { color:var(--ui-muted,#607084);font-size:11px;line-height:1.5; }
+  .record-step-nav > a:hover { background:#f5f7ff; }
+  .record-step-nav > a:focus-visible { outline:3px solid var(--ui-accent,#3154d9);outline-offset:-4px; }
+  .record-form-section,.record-review-panel { scroll-margin-top:100px;min-width:0; }
+  fieldset.record-form-section { display:block;margin:0;padding:24px;border:1px solid var(--ui-line,#dde2e8);border-radius:8px;background:#fff; }
+  .record-step-legend { padding:0 10px;color:var(--ui-ink,#182231);font-size:17px;font-weight:650;letter-spacing:-.02em; }
+  .record-step-legend > span { margin-right:9px;color:var(--ui-accent,#3154d9);font-size:11px;font-weight:700;letter-spacing:.08em; }
+  .record-form-section:target,.record-review-panel:target { border-color:var(--ui-accent,#3154d9); }
+  .record-form-section .form-card-head { flex-wrap:wrap; }
+  .record-form-section .form-card-head > div { flex:1;min-width:160px; }
+  .record-form-section .form-card-head > .record-count-label { display:inline-flex;width:auto;height:auto;white-space:nowrap;align-items:center;margin-left:auto;background:var(--ui-canvas,#f6f7f4);color:var(--ui-muted,#607084); }
+  .record-form-section .relation-editor { margin-top:20px;padding:22px;border:1px solid #dce3fd;background:#f7f8ff;border-radius:6px; }
+  .record-review-summary { display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:24px;margin:8px 0 20px; }
+  .record-review-summary > div { min-width:0; }
+  .record-review-summary dt { color:var(--ui-muted,#607084);font-size:11px;margin:0 0 8px; }
+  .record-review-summary dd { margin:0;display:block;text-align:left;font-size:16px;font-weight:650;color:var(--ui-ink,#182231);overflow-wrap:anywhere; }
+  .record-review-summary dd > span { display:block;color:var(--ui-muted,#607084);font-size:12px;font-weight:400;margin-top:5px; }
+  .record-review-panel > .record-section-hint { margin-bottom:0; }
+  .record-entry-actions { position:sticky;bottom:16px;z-index:5;margin-top:0;padding:16px 20px;border:1px solid var(--ui-line,#dde2e8);border-radius:8px;background:#fff;box-shadow:0 8px 24px #1822310a; }
+}
+@media screen and (max-width:1100px) {
+  .record-step-nav > a { padding:16px 12px;gap:3px 8px; }
+  .record-step-nav > a > small { display:none; }
+  .record-step-nav > a > span { grid-row:auto; }
+  .record-review-summary { grid-template-columns:1.2fr 1fr; }
+}
+@media screen and (max-width:1180px) {
+  .page :is(.directory-table-card,.workload-table-card) .table-scroll :is(th,td):is(:first-child,:last-child) { position:static;box-shadow:none; }
+  .page .record-scroll-hint { display:block;margin:12px 0;font-size:12px;color:var(--ui-muted); }
+}
+@media screen and (max-width:640px) {
+  .page .data-card:is(.directory-table-card,.workload-table-card) { padding:18px; }
+  .record-table-heading { align-items:flex-start;gap:10px;padding-bottom:16px; }
+  .record-table-heading h2 { font-size:18px; }
+  .record-count-label { font-size:11px;padding:5px 7px; }
+  .record-table-meta { flex-direction:column;gap:4px; }
+  .record-table-meta > span:last-child { text-align:left; }
+  .faculty-directory-page .directory-table-card .action-group .btn,
+  .workload-page .workload-table-card .action-group .btn { min-height:44px;min-width:44px; }
+  .record-step-nav { grid-template-columns:1fr; }
+  .record-step-nav > a { padding:12px 14px;grid-template-columns:28px 1fr; }
+  .record-step-nav > a > span { width:28px;height:28px; }
+  .record-step-nav > a > small { display:block;grid-column:2; }
+  .record-step-nav > a > span { grid-row:span 2; }
+  fieldset.record-form-section { padding:18px; }
+  .record-filter-panel .workload-toolbar .search-wrap { min-width:100%; }
+  .record-review-summary { grid-template-columns:1fr;gap:18px; }
+  .record-review-summary > div + div { padding-top:16px;border-top:1px solid var(--ui-line,#dde2e8); }
+  .record-editor-actions { flex-wrap:wrap; }
+  .record-save-note { flex-basis:100%; }
+  .record-entry-actions { bottom:8px;padding:14px; }
+  .record-entry-actions > .btn { flex:1;justify-content:center;text-align:center; }
+  .record-filter-panel .section-heading { align-items:flex-start; }
+}
+@media print {
+  .record-step-nav,.record-entry-actions,.record-avatar,.record-scroll-hint { display:none!important; }
+}

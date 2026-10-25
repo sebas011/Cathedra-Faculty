@@ -1,9 +1,22 @@
 # Cathedra Faculty
 
 Windows desktop application for faculty profiles, teaching workloads, approvals,
-reports and expense projections. The interface retains the established green palette.
+reports and expense projections. Version 0.3.6 introduces the redesigned ink-and-cobalt Faculty workspace.
 The backend uses FastAPI, SQLAlchemy and SQLite; the frontend uses React and TypeScript.
 FSDP is maintained separately and is not registered in this application's UI or API.
+
+## Redesigned Faculty workspace — 0.3.6
+
+Clearer profile/workload directories, grouped forms, scoped dashboard figures,
+administrator recent activity and Ctrl+K page navigation improve everyday office
+work. Existing data, approval states, calculations and the three separate Google
+Sheets connections keep their behavior. Schema remains 24.
+
+Read the [release notes](docs/RELEASE_036.md),
+[design system](docs/redesign-2026-10-24/DESIGN_SYSTEM.md), and
+[implementation blueprint](docs/redesign-2026-10-24/IMPLEMENTATION_BLUEPRINT.md).
+The optional [HTML/Tailwind/HTMX handoff](design/faculty-redesign/templates/README.md)
+is separate from the production React app. Design screenshots use synthetic data.
 
 ## Download and use on your office PC
 
@@ -62,11 +75,11 @@ Connections stay on the current PC; no Google credentials ship in the download.
 
 ## Repository scope
 
-This is a clean publication of the current application source (version 0.3.5,
+This is a clean publication of the current application source (version 0.3.6,
 schema 24). It includes backend and frontend runtime code, synthetic application
 tests, dependency locks, the desktop launcher, packaging and Windows CI workflows.
 
-Office databases, account credentials, personnel source documents, screenshots,
+Office databases, account credentials, personnel source documents, office screenshots,
 deployment receipts, and historical correction scripts/fixtures containing real
 office decisions are kept outside this public repository. The local private Git
 history is intentionally not published. No production accounts or default passwords

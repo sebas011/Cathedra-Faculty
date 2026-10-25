@@ -8,6 +8,7 @@ import UnsavedChangesDialog from "../components/UnsavedChangesDialog";
 import { useDiscardConfirmation } from "../hooks/useDiscardConfirmation";
 import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 import type { FacultyProfile, FacultyWorkload, FacultyWorkloadPayload, TeachingAssignmentPayload } from "../types";
+import "../records-redesign.css";
 
 type AssignmentDraft = Omit<TeachingAssignmentPayload, "lecture_hours" | "laboratory_hours"> & { lecture_hours: string; laboratory_hours: string };
 type AssignmentRow = TeachingAssignmentPayload & { rowKey: string };
@@ -145,15 +146,19 @@ export default function WorkloadFormPage() {
     }
   };
 
+  const selectedFaculty = profiles.find(profile => profile.id === form.faculty_profile_id);
+  const assignmentHours = form.assignments.reduce((total, assignment) => total + assignment.lecture_hours + assignment.laboratory_hours, 0);
+
   if (loadError) return <div className="notice error" role="alert">{loadError}<div className="action-group"><button className="btn secondary" type="button" onClick={() => setLoadRevision(value => value + 1)}>Retry</button><Link to="/workload">Back to workloads</Link></div></div>;
   if (initialLoading) return <PageSkeleton label="Loading workload form" variant="form" />;
-  return <div className="form-page stack-md">
+  return <div className="form-page stack-md workload-entry-page">
     <UnsavedChangesDialog blocker={blocker} />{discardDialog}
-    <section className="hero-card compact"><div><span className="eyebrow">FACULTY WORKLOAD</span><h1>{id ? "Edit Workload" : "Add Workload"}</h1></div><Link className="btn secondary" to={id ? `/workload/${id}` : "/workload"}>Back</Link></section>
+    <section className="hero-card compact"><div><span className="eyebrow">FACULTY WORKLOAD</span><h1>{id ? "Edit Workload" : "Add Workload"}</h1><p>Start with the faculty member and period, add teaching assignments, then review the complete record.</p></div><Link className="btn secondary" to={id ? `/workload/${id}` : "/workload"}>Back</Link></section>
+    <nav className="record-step-nav" aria-label="Workload entry sections"><a href="#workload-faculty"><span aria-hidden="true">01</span><strong>Faculty &amp; period</strong><small>Appointment and teaching context</small></a><a href="#workload-assignments"><span aria-hidden="true">02</span><strong>Teaching assignments</strong><small>Courses, sections, and weekly hours</small></a><a href="#workload-review"><span aria-hidden="true">03</span><strong>Review &amp; save</strong><small>Check the record before committing</small></a></nav>
     <FormError message={error} />
     {sourceRecord && <ImportedOverloadNotice record={sourceRecord} />}
     <form noValidate onSubmit={save} className="stack-md">
-      <section className="form-card"><div className="form-card-head"><span>01</span><div><h2>Faculty and teaching period</h2></div></div><div className="form-grid three">
+      <fieldset className="form-card record-form-section" id="workload-faculty" tabIndex={-1}><legend className="record-step-legend"><span>01</span> Faculty and teaching period</legend><p className="record-section-hint">Choose the saved faculty profile and the period this workload belongs to.</p><div className="form-grid three">
         <label>Faculty Member<select {...fieldAttributes("faculty_profile_id")} value={form.faculty_profile_id} onChange={(event) => setForm({ ...form, faculty_profile_id: Number(event.target.value) })}><option value={0}>Select faculty member</option>{profiles.map((profile) => {
           const inactive = statusConflictsWithPeriod(profile, form.academic_year, form.term);
           return <option key={profile.id} value={profile.id} disabled={inactive && profile.id !== form.faculty_profile_id}>{profile.name} — {profile.department}{inactive ? ` (${profile.service_status}: conflicts with selected period)` : ""}</option>;
@@ -164,9 +169,9 @@ export default function WorkloadFormPage() {
         <label>Highest academic degree<select value={form.highest_qualification || ""} onChange={(event) => setForm({ ...form, highest_qualification: (event.target.value || null) as FacultyWorkloadPayload["highest_qualification"] })}><option value="">Not recorded</option><option value="Bachelor">Bachelor’s degree</option><option value="Masters">Master’s degree</option><option value="Doctorate">Doctorate</option></select></label>
         <label>Professional credential<select value={form.professional_qualification} onChange={(event) => setForm({ ...form, professional_qualification: event.target.value as FacultyWorkloadPayload["professional_qualification"], professional_qualification_other: null })}><option>None</option><option value="Doctor">Medical doctor</option><option>Lawyer</option><option>CPA</option><option>Other</option></select><small>Degrees and credentials are separate. Existing rate additions apply only to external part-time teaching; CPA and Other have no rate addition yet.</small></label>
         {form.professional_qualification === "Other" && <label>Other professional credential<input required maxLength={200} {...fieldAttributes("professional_qualification_other")} value={form.professional_qualification_other || ""} onChange={(event) => setForm({ ...form, professional_qualification_other: event.target.value })} />{fieldError("professional_qualification_other")}</label>}
-      </div></section>
-      <section className="form-card">
-        <div className="form-card-head"><span>02</span><div><h2>Teaching Assignments</h2></div></div>
+      </div></fieldset>
+      <section className="form-card record-form-section" id="workload-assignments" aria-labelledby="workload-assignments-title" tabIndex={-1}>
+        <div className="form-card-head"><span>02</span><div><h2 id="workload-assignments-title">Teaching Assignments</h2><p>Add every course and class section, including its lecture and laboratory hours.</p></div><span className="record-count-label">{form.assignments.length} {form.assignments.length === 1 ? "assignment" : "assignments"}</span></div>
         {fieldError("assignments")}
         <div className="table-scroll" role="region" aria-label="Edit teaching assignments" tabIndex={0} {...fieldAttributes("assignments")}><table><thead><tr><th>Course</th><th>Title</th><th>Section</th><th>Lecture</th><th>Laboratory</th><th>Actions</th></tr></thead><tbody>
           {form.assignments.length ? form.assignments.map((assignment, index) => <tr key={assignment.rowKey}><td>{assignment.course_code}</td><td>{assignment.course_title}</td><td>{assignment.year_section}</td><td>{assignment.lecture_hours}</td><td>{assignment.laboratory_hours}</td><td><button type="button" className="btn secondary" disabled={showEditor} onClick={() => { setDraft({ course_code: assignment.course_code, course_title: assignment.course_title, year_section: assignment.year_section, lecture_hours: String(assignment.lecture_hours), laboratory_hours: String(assignment.laboratory_hours) }); setFieldErrors({}); setEditingIndex(index); setShowEditor(true); }}>Edit</button> <button type="button" className="btn secondary" disabled={showEditor} onClick={() => setForm((current) => ({ ...current, assignments: current.assignments.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></td></tr>) : <tr><td colSpan={6} className="empty-table">No assignments added.</td></tr>}
@@ -183,7 +188,8 @@ export default function WorkloadFormPage() {
           <div className="form-actions"><button type="button" className="btn secondary" onClick={async () => { if (await confirmDiscard("Discard this assignment editor’s changes? Courses already added to the workload form will stay unchanged.")) closeEditor(); }}>Cancel</button><button type="button" className="btn primary" onClick={saveAssignment}>Save Assignment</button></div>
         </div>}
       </section>
-      <div className="form-actions"><button className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Workload"}</button></div>
+      <section className="form-card record-review-panel" id="workload-review" aria-labelledby="workload-review-title" tabIndex={-1}><div className="form-card-head"><span>03</span><div><h2 id="workload-review-title">Review &amp; save</h2><p>Confirm the faculty member, teaching period, and assignment totals.</p></div></div><dl className="record-review-summary"><div><dt>Faculty member</dt><dd>{selectedFaculty?.name || "No faculty selected"}</dd></div><div><dt>Teaching period</dt><dd>{form.academic_year || "No academic year"}<span>{form.term}</span></dd></div><div><dt>Assignments</dt><dd>{form.assignments.length}<span>{assignmentHours.toFixed(1)} teaching hours / week</span></dd></div></dl><p className="record-section-hint">Review and approval remain separate actions on the workload record.</p></section>
+      <div className="form-actions record-editor-actions record-entry-actions"><span className="record-save-note">{showEditor ? "Finish or cancel the open assignment before saving." : "Changes stay in this form until you save."}</span><Link className="btn secondary" to={id ? `/workload/${id}` : "/workload"}>Cancel</Link><button className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Workload"}</button></div>
     </form>
   </div>;
 }

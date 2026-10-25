@@ -1,0 +1,44 @@
+/* Input for the optional Tailwind CSS 3.x handoff build, not a browser-ready file. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: light; }
+  html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+  body { @apply bg-canvas font-sans text-sm text-ink antialiased; }
+  :where(button, a, input, select, textarea, summary):focus-visible {
+    outline: 3px solid #3154D9; outline-offset: 3px;
+  }
+  :where(input, select, textarea) { @apply rounded-md border border-field-line bg-white px-3 py-2.5 text-sm text-ink; }
+  :where(input, select, textarea):disabled { @apply cursor-not-allowed bg-slate-100 text-muted; }
+  input[aria-invalid=true], select[aria-invalid=true], textarea[aria-invalid=true] { @apply border-danger; }
+  th { @apply text-left; }
+  button:disabled { @apply cursor-not-allowed opacity-50; }
+}
+@layer components {
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[.14em] text-muted; }
+  .panel { @apply rounded-xl border border-line bg-white shadow-panel; }
+  .btn { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold no-underline transition-colors; }
+  .btn-primary { @apply border-cobalt bg-cobalt text-white hover:border-blue-800 hover:bg-blue-800; }
+  .btn-secondary { @apply border-line bg-white text-ink hover:border-slate-400 hover:bg-slate-50; }
+  .btn-quiet { @apply border-transparent text-muted hover:bg-slate-100 hover:text-ink; }
+  .field { @apply flex min-w-0 flex-col gap-2 text-sm font-semibold; }
+  .field-help { @apply text-xs font-normal leading-5 text-muted; }
+  .field-error { @apply text-xs font-normal text-danger; }
+  .form-section { @apply scroll-mt-24 space-y-6 rounded-xl border border-line bg-white p-5 md:p-7; }
+  .section-title { @apply text-lg font-semibold tracking-tight; }
+  .status-pill { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold; }
+  .nav-link { @apply flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white; }
+  .nav-link[aria-current=page] { @apply bg-white/10 font-semibold text-white; box-shadow: inset 3px 0 #F3B189; }
+  .htmx-indicator { display: none; }
+  .htmx-request.htmx-indicator, .htmx-request .htmx-indicator { display: inline-flex; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition: none !important; animation: none !important; } }
+@media print {
+  body { color: #000; background: #fff; font-size: 10pt; }
+  nav, aside, header, .no-print, .htmx-indicator { display: none !important; }
+  main { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+  .panel { box-shadow: none; break-inside: avoid; }
+  table { width: 100%; } thead { display: table-header-group; } tr { break-inside: avoid; }
+}

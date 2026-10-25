@@ -17,7 +17,7 @@ import "./workspace-design.css";
 import "./workspace-sections.css";
 import "./skeleton.css";
 import "./table-usability.css";
-import "./faculty-design-system.css";
+import "./operations-design.css";
 
 const router = createBrowserRouter([{ path: "*", element: <App />, errorElement: <RouteErrorPage /> }]);
 createRoot(document.getElementById("root")!).render(<StrictMode><RouterProvider router={router} /></StrictMode>);

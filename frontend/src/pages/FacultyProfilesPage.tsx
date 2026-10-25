@@ -12,8 +12,10 @@ import { Link } from "react-router-dom";
 import { createFacultyProfile, deleteFacultyProfile, getCurrentUser, getFacultyProfiles, getSalaryScale } from "../api";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import type { FacultyProfile, FacultyProfilePayload, SalaryScale } from "../types";
+import "../records-redesign.css";
 
 const departments = ["CAS", "COEd", "CBMA", "COE", "COF", "CIT", "CCS", "CCJ"] as const;
+const facultyInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
 
 const blankProfile = (): FacultyProfilePayload => ({ name: "", rank: "", employment_status: "Full-time", salary_grade: "", salary_step: 1, monthly_salary: null, campus: null, college: "CAS", department: "", service_status: "Active", service_status_effective_date: null, item_number: null, bachelors_degree: null, masters_degree: null, doctoral_degree: null, eligibility: null, remarks: null });
 export default function FacultyProfilesPage() {
@@ -113,7 +115,7 @@ export default function FacultyProfilesPage() {
         <div>
           <span className="eyebrow">FACULTY DIRECTORY</span>
           <h1>Faculty Profiles</h1>
-          <p>Keep faculty ranks, departments, and programs in one directory.</p>
+          <p>The people, appointments, and academic backgrounds behind every teaching plan.</p>
         </div>
         {isAdmin && <button className="btn primary" type="button" disabled={saving} onClick={async () => { if (!(await confirmDiscard())) return; resetBaseline(blankProfile()); setForm(blankProfile()); setFieldErrors({}); setIsEditorOpen(true); }}>Add Faculty</button>}
       </section>
@@ -121,14 +123,16 @@ export default function FacultyProfilesPage() {
       {isEditorOpen ? <FormError message={error} /> : error && <div className="notice error" role="alert">{error}</div>}
 
       {isEditorOpen && (
-        <form onSubmit={saveProfile} className="form-card faculty-editor">
-          <div className="form-card-head"><span>NEW</span><div><h2>New faculty profile</h2><p>Enter the faculty member’s current appointment details.</p></div></div>
-          <div className="form-grid three">
+        <form onSubmit={saveProfile} className="form-card faculty-editor record-editor">
+          <div className="form-card-head"><span>NEW</span><div><h2>New faculty profile</h2><p>Complete the appointment first, then add placement and academic background. Required fields are marked *.</p></div></div>
+          <fieldset className="record-fieldset"><legend><span>01</span> Appointment</legend><p className="record-section-hint">Identify the faculty member and their current service status.</p><div className="form-grid three">
             <label className="span-2">Name *<input required {...fieldAttributes("name")} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />{fieldError("name")}</label>
             <label>Rank / position *<input required {...fieldAttributes("rank")} list="academic-ranks" value={form.rank} onChange={(event) => updateRank(event.target.value)} />{fieldError("rank")}<datalist id="academic-ranks">{salaryScale?.rank_mappings.map((item) => <option key={item.rank} value={item.rank} />)}</datalist></label>
             <label>Employment status<select value={form.employment_status} onChange={(event) => setForm({ ...form, employment_status: event.target.value as FacultyProfilePayload["employment_status"] })}><option>Full-time</option><option>Part-time</option></select></label>
             <label>Faculty status<select value={form.service_status} onChange={(event) => setForm({ ...form, service_status: event.target.value as FacultyProfilePayload["service_status"], service_status_effective_date: null })}><option>Active</option><option>Inactive</option><option>Retired</option><option>Resigned</option><option>To verify</option></select></label>
             {["Inactive", "Retired", "Resigned"].includes(form.service_status) && <label>Status effective date<input type="date" required value={form.service_status_effective_date || ""} onChange={event => setForm({ ...form, service_status_effective_date: event.target.value || null })} /></label>}
+          </div></fieldset>
+          <fieldset className="record-fieldset"><legend><span>02</span> Placement &amp; salary</legend><p className="record-section-hint">Keep the department, program, and salary-scale selection together.</p><div className="form-grid three">
             <label>Salary grade<select value={form.salary_grade || ""} disabled={Boolean(rankGrade)} onChange={(event) => setForm({ ...form, salary_grade: event.target.value, salary_step: 1 })}><option value="">Select salary grade</option>{salaryScale?.grades.map((item) => <option key={item.salary_grade} value={item.salary_grade}>{item.salary_grade}</option>)}</select>{rankGrade && <small>Set from the selected academic rank.</small>}</label>
             <label>Salary step<select value={form.salary_step} disabled={!grade} onChange={(event) => setForm({ ...form, salary_step: Number(event.target.value) })}>{grade ? grade.steps.map((item) => <option key={item.step} value={item.step}>Step {item.step}</option>) : <option>Choose a salary grade first</option>}</select></label>
             <label>Official monthly salary<input readOnly value={selectedSalary != null ? `₱${selectedSalary.toLocaleString("en-PH", { minimumFractionDigits: 2 })}` : "Select a salary grade and step"} /></label>
@@ -136,22 +140,26 @@ export default function FacultyProfilesPage() {
             <label>Department<select value={form.college} onChange={(event) => setForm({ ...form, college: event.target.value as FacultyProfilePayload["college"] })}>{departments.map((department) => <option key={department}>{department}</option>)}</select></label>
             <FacultyProgramField className="span-3" department={form.college} value={form.department} onChange={program => setForm({ ...form, department: program })} required error={fieldErrors.department} />
             <label>Item number<input maxLength={100} value={form.item_number || ""} onChange={event => setForm({ ...form, item_number: event.target.value || null })} /></label>
+          </div></fieldset>
+          <fieldset className="record-fieldset"><legend><span>03</span> Academic background</legend><p className="record-section-hint">Record degrees and eligibility when available. These details can be completed later.</p><div className="form-grid three">
             <label>Bachelor’s degree<input maxLength={300} value={form.bachelors_degree || ""} onChange={event => setForm({ ...form, bachelors_degree: event.target.value || null })} /></label>
             <label>Master’s degree<input maxLength={300} value={form.masters_degree || ""} onChange={event => setForm({ ...form, masters_degree: event.target.value || null })} /></label>
             <label>Doctoral degree<input maxLength={300} value={form.doctoral_degree || ""} onChange={event => setForm({ ...form, doctoral_degree: event.target.value || null })} /></label>
             <label>Eligibility<input maxLength={300} value={form.eligibility || ""} onChange={event => setForm({ ...form, eligibility: event.target.value || null })} /></label>
             <label className="span-3">Remarks<textarea maxLength={2000} value={form.remarks || ""} onChange={event => setForm({ ...form, remarks: event.target.value || null })} /></label>
-          </div>
-          <div className="form-actions"><button type="button" className="btn secondary" disabled={saving} onClick={async () => { if (await confirmDiscard()) closeEditor(); }}>Cancel</button><button className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Faculty"}</button></div>
+          </div></fieldset>
+          <div className="form-actions record-editor-actions"><span className="record-save-note">Your profile is saved only when you choose Save Faculty.</span><button type="button" className="btn secondary" disabled={saving} onClick={async () => { if (await confirmDiscard()) closeEditor(); }}>Cancel</button><button className="btn primary" disabled={saving}>{saving ? "Saving…" : "Save Faculty"}</button></div>
         </form>
       )}
 
       <section className="data-card directory-table-card">
+        <div className="record-table-heading"><div><span className="eyebrow">PEOPLE &amp; APPOINTMENTS</span><h2>Faculty directory</h2></div><span className="record-count-label">{loading ? "Updating directory…" : `${total.toLocaleString()} ${total === 1 ? "profile" : "profiles"}`}</span></div>
         <div className="toolbar directory-toolbar"><div className="search-wrap"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search name, rank, department, or program" aria-label="Search faculty profiles" /></div><label>Faculty status<select value={serviceStatus} onChange={event => { setServiceStatus(event.target.value); setPage(1); }}><option value="">All</option><option>Active</option><option>Inactive</option><option>Retired</option><option>Resigned</option><option>To verify</option></select></label>{search && <button className="btn secondary" type="button" onClick={() => { setSearch(""); setPage(1); }}>Clear search</button>}</div>
-        <div className="table-meta">{total} profiles · Page {page} of {Math.max(1, Math.ceil(total / 50))}</div>
+        <div className="table-meta record-table-meta"><span>{total} profiles · Page {page} of {Math.max(1, Math.ceil(total / 50))}</span><span>{serviceStatus || "All service statuses"}{search ? ` · Matching “${search}”` : " · Name, appointment, and placement"}</span></div>
+        <p className="record-scroll-hint">Scroll the table horizontally to see all columns.</p>
         <div className="table-scroll" role="region" aria-label="Faculty profile directory" tabIndex={0}><table><thead><tr><th scope="col">Faculty member</th><th scope="col">Appointment</th><th scope="col">Department & program</th><th scope="col" className="right">Actions</th></tr></thead><tbody>
           {loading ? <SkeletonTableRows columns={4} /> : profiles.length === 0 ? <tr><td colSpan={4} className="empty-table"><strong>No faculty profiles found.</strong><span>{search ? "Try a broader search term." : "Add a faculty member to begin the directory."}</span></td></tr> : profiles.map((profile) => <tr key={profile.id}>
-            <td><div className="person-cell"><Link className="faculty-profile-link" to={`/faculty-profiles/${profile.id}`}><strong>{profile.name}</strong></Link><span>{profile.service_status} · {profile.employment_status}</span></div></td>
+            <td><div className="record-identity"><span className="record-avatar" aria-hidden="true">{facultyInitials(profile.name)}</span><div className="person-cell"><Link className="faculty-profile-link" to={`/faculty-profiles/${profile.id}`}><strong>{profile.name}</strong></Link><span><i className={`record-status-dot ${profile.service_status === "Active" ? "is-active" : ""}`} aria-hidden="true" />{profile.service_status} · {profile.employment_status}</span></div></div></td>
             <td><div className="person-cell"><strong>{profile.rank}</strong><span>{profile.salary_grade ? `${profile.salary_grade} · Step ${profile.salary_step}` : "No salary grade"}{profile.monthly_salary != null ? ` · ₱${profile.monthly_salary.toLocaleString("en-PH", { minimumFractionDigits: 2 })}` : ""}</span></div></td>
             <td><div className="person-cell"><strong>{profile.college || "—"}</strong><span>{profile.department || "—"}{profile.campus ? ` · ${profile.campus}` : ""}</span></div></td>
             <td className="right"><div className="action-group"><Link className="btn secondary" to={`/faculty-profiles/${profile.id}`}>View</Link>{isAdmin && <button className="btn secondary danger" type="button" onClick={() => void removeProfile(profile)}>Delete</button>}</div></td>

@@ -1,0 +1,188 @@
+[
+  {
+    "client": 1405,
+    "heading": "Faculty Profiles",
+    "route": "/faculty-profiles",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Alex Rivera",
+    "route": "/faculty-profiles/1",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Weekly Teaching Loads",
+    "route": "/workload",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Alex Rivera",
+    "route": "/workload/1",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Edit Workload",
+    "route": "/workload/1/edit",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Faculty Expenses Projection",
+    "route": "/expenses",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1422,
+    "heading": "Overall office report",
+    "route": "/reports",
+    "scroll": 1422,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Office settings",
+    "route": "/settings",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Backup & Export",
+    "route": "/backup-export",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Academic Calendar",
+    "route": "/calendar",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1422,
+    "heading": "Needs Verification",
+    "route": "/verification",
+    "scroll": 1422,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1422,
+    "heading": "Office Pre-flight Check",
+    "route": "/system-readiness",
+    "scroll": 1422,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1422,
+    "heading": "Prepare a term for closeout",
+    "route": "/semester-closeout",
+    "scroll": 1422,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Activity History",
+    "route": "/activity",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 1405,
+    "heading": "Office Guide",
+    "route": "/office-guide",
+    "scroll": 1405,
+    "unlabelledFields": []
+  },
+  {
+    "client": 338,
+    "controls": [
+      {
+        "height": 43.99305725097656,
+        "label": "Open menu",
+        "width": 43.99305725097656
+      },
+      {
+        "height": 43.99305725097656,
+        "label": "Jump to a page",
+        "width": 43.99305725097656
+      },
+      {
+        "height": 43.99305725097656,
+        "label": "Logout",
+        "width": 43.99305725097656
+      }
+    ],
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/",
+    "scroll": 338
+  },
+  {
+    "client": 338,
+    "heading": "Faculty Profiles",
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/faculty-profiles",
+    "scroll": 338
+  },
+  {
+    "client": 338,
+    "heading": "Add Workload",
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/workload/new",
+    "scroll": 338
+  },
+  {
+    "client": 338,
+    "heading": "Faculty Expenses Projection",
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/expenses",
+    "scroll": 338
+  },
+  {
+    "client": 338,
+    "heading": "Backup & Export",
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/backup-export",
+    "scroll": 338
+  },
+  {
+    "client": 338,
+    "heading": "Office settings",
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/settings",
+    "scroll": 338
+  },
+  {
+    "client": 338,
+    "heading": "Academic Calendar",
+    "inner": 355,
+    "mode": "narrow",
+    "route": "/calendar",
+    "scroll": 338
+  },
+  {
+    "route": "/faculty-profiles",
+    "mode": "table-overlap-fix",
+    "firstPosition": "static",
+    "lastPosition": "static",
+    "scrollLeft": 44.4444465637207,
+    "scrollWidth": 900,
+    "width": 548
+  }
+]
