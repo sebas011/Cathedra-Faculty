@@ -106,7 +106,13 @@ def main():
         assert (data / "empty-folder").is_dir()
         backup = Path(second["private_backup"]).resolve(strict=True)
         assert backup.is_relative_to(fixture) and backup != install
-        assert tree(backup / "data") == before
+        backup_data = tree(backup / "data")
+        # The installer creates a zero-byte guard before taking its complete
+        # recovery copy, then removes only that newly created guard from live data.
+        assert set(backup_data) == set(before) | {".cathedra.lock"}
+        assert backup_data[".cathedra.lock"] == hashlib.sha256(b"").hexdigest()
+        assert {name: value for name, value in backup_data.items() if name in before} == before
+        assert (backup / "data/empty-folder").is_dir()
         assert (backup / "release-manifest.json").is_file()
         assert (
             json.loads((install / "release-manifest.json").read_text(encoding="utf-8-sig"))[
