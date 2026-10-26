@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import subprocess
 import uuid
+from contextlib import closing
 from pathlib import Path
 
 
@@ -86,7 +87,7 @@ def main():
         assert not (install / "data").exists()
         data = install / "data"
         data.mkdir()
-        with sqlite3.connect(data / "cathedra.db") as database:
+        with closing(sqlite3.connect(data / "cathedra.db")) as database:
             database.execute(
                 "CREATE TABLE setup_test_records (id INTEGER PRIMARY KEY, note TEXT NOT NULL)"
             )
@@ -94,6 +95,7 @@ def main():
                 "INSERT INTO setup_test_records VALUES (1, ?)",
                 ("Synthetic update record",),
             )
+            database.commit()
         (data / "attachments").mkdir()
         (data / "attachments/fixture.txt").write_text("Synthetic attachment", encoding="utf-8")
         (data / "empty-folder").mkdir()
