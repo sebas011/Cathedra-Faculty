@@ -26,24 +26,22 @@ complete current manifest and checksum checks.
 
 1. In the old app, save any open work. Use **Exit Cathedra**, then close all other
    Cathedra windows using the same records.
-2. Keep `Cathedra-Faculty` in its existing Windows user folder. As an extra
-   recovery copy, copy the complete old installation to a separate private folder
-   while the app is closed. Confirm the copy contains `data/cathedra.db`.
-3. Download the Windows ZIP under **Assets** on the official release page for
-   the version you intend to install. Choose the named Windows x64 office ZIP,
-   not GitHub's Source code ZIP. Compare its checksum and build identity against
-   the values supplied with that same release.
-4. Choose **Extract All** into a new folder, separate from the installed app and
-   any previously extracted office.1 download. Keep every extracted file together.
-5. From the newly extracted folder, double-click **Install-or-Update.cmd** as
+2. Leave `Cathedra-Faculty` in its existing Windows user folder and keep any
+   backup you already made. Setup creates an additional verified recovery copy
+   automatically; you do not need to move the old files.
+3. Download **[Cathedra-Faculty-Setup.exe](https://github.com/sebas011/Cathedra-Faculty/releases/latest/download/Cathedra-Faculty-Setup.exe)**.
+   Use the latest official setup containing the legacy sidecar correction.
+4. Open the setup file. It checks and extracts the complete package for you.
+   You do not need to move old files or extract a ZIP.
+5. Choose **Update Cathedra** as
    the same normal Windows account used for the existing app. No Python, Node.js
    or administrator account is needed. For example, the default installed path
    is `C:\Users\YourName\Cathedra-Faculty`.
-6. The installer reports recognition of the original **0.3.2** format, verifies
+6. Setup recognizes the original **0.3.2** format, verifies
    its recorded application files, locks the data folder, and creates a private
    recovery copy of the **complete old application and data** before replacement.
    It verifies that copy and keeps the old manifest unchanged inside it.
-7. Wait for the installer to report that the version you downloaded is ready (for this upgrade, **Cathedra Faculty 0.3.6**). Keep the recovery folder shown
+7. Wait for setup to report **Cathedra is ready**. Keep the recovery folder shown
    on screen. The installer leaves the existing `data` folder in place and
    checks its contents against the original file hashes.
 8. The app opens and upgrades its existing database schema on first startup.
@@ -55,15 +53,15 @@ complete current manifest and checksum checks.
 
 The installer does not merge records from another PC, replace the existing
 database with its empty seed, reset passwords or rewrite the old manifest. A new
-installation without existing data starts empty; choose the existing installation
-path for an update. A renamed or custom install folder can be supplied through
+installation without existing data starts empty. Setup detects the default
+installation automatically. A renamed or custom install folder can be supplied through
 the installer's `-InstallFolder` option by the office's support person.
 
 ## If verification stops
 
-- **Still using office.1:** download/extract the corrected office.2 ZIP into a new
-  folder and run its own installer. Do not replace a single script inside the old
-  extracted package; its wrapper checksums intentionally detect changed files.
+- **Using an older download:** download the latest **Cathedra-Faculty-Setup.exe**
+  and open that complete file. Do not replace scripts inside an older extracted
+  package; its wrapper checksums intentionally detect changed files.
 - **Old application checksum, missing file or unexpected file:** keep the old
   installation, database and backup. Request support with the exact message and
   installed version. Do not delete records, strip files or change manifest hashes

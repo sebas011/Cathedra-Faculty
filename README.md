@@ -1,7 +1,7 @@
 # Cathedra Faculty
 
 Windows desktop application for faculty profiles, teaching workloads, approvals,
-reports and expense projections. Version 0.3.6 introduces the redesigned ink-and-cobalt Faculty workspace.
+reports and expense projections. Version 0.3.7 adds a single-file Windows setup for simpler office updates.
 The backend uses FastAPI, SQLAlchemy and SQLite; the frontend uses React and TypeScript.
 FSDP is maintained separately and is not registered in this application's UI or API.
 
@@ -20,39 +20,35 @@ is separate from the production React app. Design screenshots use synthetic data
 
 ## Download and use on your office PC
 
-**[Download the latest Windows app](https://github.com/sebas011/Cathedra-Faculty/releases/latest)**
+**[Download Cathedra-Faculty-Setup.exe](https://github.com/sebas011/Cathedra-Faculty/releases/latest/download/Cathedra-Faculty-Setup.exe)**
 
-1. Open the release above and download the `Cathedra-Faculty-…-Windows-x64.zip` asset.
-2. Right-click the ZIP and choose **Extract All**. Open the extracted folder.
-3. Double-click **Install-or-Update.cmd**. Then use the **Cathedra Faculty** desktop shortcut.
+1. Save your work and choose **Exit Cathedra**.
+2. Open the downloaded **Cathedra-Faculty-Setup.exe**.
+3. Choose **Update Cathedra**. On a new PC, choose **Install Cathedra**.
 
-Use Windows 10 or 11 (64-bit), with Microsoft Edge installed. Python, Node.js,
-development tools and administrator rights are not required. Download the release
-ZIP under **Assets**; GitHub's **Code > Download ZIP** contains development source.
+Setup checks and extracts its package, creates and verifies a private recovery
+copy, keeps your records and accounts, and opens the updated app. No ZIP
+extraction, manual file moves, administrator account, Python or Node.js is needed.
+Use your normal Windows account. Setup installs in
+`%USERPROFILE%\Cathedra-Faculty`; use the desktop shortcut afterward.
 
-The installer places the complete app in `%USERPROFILE%\Cathedra-Faculty`.
-Close Cathedra before installing an update. Existing records and sign-in accounts
-in that location are preserved, with a private backup made before replacement.
-The installer checks the packaged file hashes and refuses an incomplete package.
+If Cathedra is still open, save and exit it, then choose **Try again** in setup.
+See the [simple update guide](docs/SIMPLE_OFFICE_UPDATE.md).
+The Windows ZIP remains an optional alternative; GitHub's Source code ZIP is for
+development and is not the office installer.
 
-On a new PC, the app starts with an empty database and guides you through creating
-your administrator account. This public download contains no faculty records or
-existing passwords. To bring records from another PC, use **Backup & Export** in
-the existing app and transfer that backup privately; restore it in the office app.
-Restoring replaces the destination records and accounts, so preserve a backup of
-that destination first. Computers do not synchronize automatically.
+New PCs start with an empty database. The public download contains no office
+records, accounts or Google credentials. Transfer records privately using Backup
+& Export. Restore replaces destination records and accounts; keep a backup first.
+Computers do not automatically synchronize or merge databases.
 
-## Updating from the original 0.3.2 installation
+## Updating the original 0.3.2 installation
 
-Use **v0.3.5-office.2** or a later corrected release. The original 0.3.2 manifest
-legitimately lacks build identities and BUILD_ID; the first office.1 installer
-incorrectly rejects it. The corrected installer verifies its old checksums,
-backs up the complete application and data privately, and preserves the original
-manifest in the recovery copy. Download/extract the whole corrected ZIP; do not
-edit old manifests or replace one script inside an earlier ZIP.
-
-Read the [step-by-step 0.3.2 migration guide](docs/UPGRADE_FROM_032.md), including
-first-start database migration, existing-account sign-in and complete recovery.
+Use the latest **0.3.7 setup** or a later corrected release. It recognizes the
+original manifest and seven known legacy sidecar files automatically, verifies
+the application and saves a complete private recovery copy. Do not remove old
+files or edit manifests to make an update pass.
+Read the [migration guide](docs/UPGRADE_FROM_032.md).
 
 ## Update three separate Google Sheets
 
@@ -75,7 +71,7 @@ Connections stay on the current PC; no Google credentials ship in the download.
 
 ## Repository scope
 
-This is a clean publication of the current application source (version 0.3.6,
+This is a clean publication of the current application source (version 0.3.7,
 schema 24). It includes backend and frontend runtime code, synthetic application
 tests, dependency locks, the desktop launcher, packaging and Windows CI workflows.
 

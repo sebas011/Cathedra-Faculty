@@ -94,6 +94,13 @@ jobs:
           $packageFolder = Join-Path $env:RUNNER_TEMP 'office-installer-smoke'
           Expand-Archive -LiteralPath (Join-Path $env:RUNNER_TEMP "office-download/$env:ASSET_NAME") -DestinationPath $packageFolder
           ./desktop/test-office-installer.ps1 -PackageFolder $packageFolder
+      - name: Build the single-file office installer
+        run: |
+          ./desktop/build-office-setup.ps1 -OfficeDownloadFolder (Join-Path $env:RUNNER_TEMP 'office-download') -Python (Get-Command python).Source
+      - name: Test the single-file installer without developer tools
+        run: |
+          python desktop/smoke_office_setup.py --download-folder (Join-Path $env:RUNNER_TEMP 'office-download')
+          if ($LASTEXITCODE -ne 0) { throw 'Single-file setup verification failed.' }
       - name: Retain only the verified download files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -106,6 +113,8 @@ jobs:
             ${{ runner.temp }}/office-download/${{ steps.identity.outputs.asset }}.sha256
             ${{ runner.temp }}/office-download/office-release-manifest.json
             ${{ runner.temp }}/office-download/OFFICE-READ-ME.txt
+            ${{ runner.temp }}/office-download/Cathedra-Faculty-Setup.exe
+            ${{ runner.temp }}/office-download/Cathedra-Faculty-Setup.exe.sha256
 
   publish:
     needs: build
@@ -135,10 +144,16 @@ jobs:
           $checksumFile = "$asset.sha256"
           $manifestFile = Join-Path $folder 'office-release-manifest.json'
           $readmeFile = Join-Path $folder 'OFFICE-READ-ME.txt'
-          if (@(Get-ChildItem -LiteralPath $folder -Force).Count -ne 4) { throw 'Unexpected publication files.' }
+          $setupFile = Join-Path $folder 'Cathedra-Faculty-Setup.exe'
+          $setupChecksumFile = "$setupFile.sha256"
+          $allowedFiles = @($env:ASSET_NAME, "$env:ASSET_NAME.sha256", 'office-release-manifest.json', 'OFFICE-READ-ME.txt', 'Cathedra-Faculty-Setup.exe', 'Cathedra-Faculty-Setup.exe.sha256')
+          $actualFiles = @(Get-ChildItem -LiteralPath $folder -Force)
+          if ($actualFiles.Count -ne 6 -or @($actualFiles | Where-Object { $_.PSIsContainer -or $_.Name -notin $allowedFiles }).Count) { throw 'Unexpected publication files.' }
           $expected = (Get-Content -LiteralPath $checksumFile -Raw).Trim()
           $checksum = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($expected -cne "$checksum  $env:ASSET_NAME") { throw 'Download checksum verification failed.' }
+          $setupChecksum = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ((Get-Content -LiteralPath $setupChecksumFile -Raw).Trim() -cne "$setupChecksum  Cathedra-Faculty-Setup.exe") { throw 'Setup checksum verification failed.' }
           $manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
           if ($manifest.product -ne 'faculty' -or $manifest.version -ne $env:RELEASE_VERSION -or $manifest.source_commit -ne $env:SOURCE_COMMIT -or $manifest.release_tag -ne $env:RELEASE_TAG -or $manifest.asset -ne $env:ASSET_NAME) {
             throw 'Download identity verification failed.'
@@ -150,17 +165,22 @@ jobs:
           if (@($existingTags) -contains $env:RELEASE_TAG) { throw 'This release already exists. Choose a new office release tag; published assets are never replaced.' }
           $notesFile = Join-Path $env:RUNNER_TEMP 'office-release-notes.md'
           @"
-          Download **$env:ASSET_NAME** below. Extract the entire ZIP, then double-click **Install-or-Update.cmd**. Read **OFFICE-READ-ME.txt** for installation and update instructions.
+          **[Download Cathedra-Faculty-Setup.exe](https://github.com/$env:GH_REPO/releases/download/$env:RELEASE_TAG/Cathedra-Faculty-Setup.exe)**
 
-          The ZIP includes the Windows application and an empty installation database. Python, Node.js, and developer tools are not required on the office computer. Existing office records remain in their separate data folder.
+          Save your work and choose **Exit Cathedra**. Open **Cathedra-Faculty-Setup.exe**, then choose **Update Cathedra**. Setup checks and extracts the package, creates a private recovery copy, preserves existing records and accounts, and opens the updated app. No ZIP extraction, administrator account, Python, Node.js, or manual file moves are required.
 
-          This installer supports the original 0.3.2 manifest format. It verifies the old application and creates a complete private recovery copy before updating. Do not edit the installed manifest or replace individual files in an older extracted ZIP. Read the [0.3.2 migration guide](https://github.com/$env:GH_REPO/blob/$env:SOURCE_COMMIT/docs/UPGRADE_FROM_032.md).
+          This release includes the original 0.3.2 manifest and seven known legacy sidecar corrections. These old reference files are preserved in the recovery copy. Do not edit manifests or remove files to make an update pass. Read the [simple update guide](https://github.com/$env:GH_REPO/blob/$env:SOURCE_COMMIT/docs/SIMPLE_OFFICE_UPDATE.md).
+
+          On a new PC, setup creates an empty workspace. Transfer records privately using Backup & Export. The public download contains no office records or credentials.
+
+          The **$env:ASSET_NAME** ZIP remains available as an alternative. Its complete extracted folder still uses **Install-or-Update.cmd**.
 
           Application version: $env:RELEASE_VERSION
           Source commit: $env:SOURCE_COMMIT
-          SHA256: $checksum
+          Setup SHA256: $setupChecksum
+          ZIP SHA256: $checksum
 
           This application is unsigned. Windows may ask you to confirm the download. The SHA256 file and release manifests are provided for verification.
           "@ | Set-Content -LiteralPath $notesFile -Encoding utf8
-          gh release create $env:RELEASE_TAG $asset $checksumFile $manifestFile $readmeFile --repo $env:GH_REPO --verify-tag --title "Cathedra Faculty $env:RELEASE_VERSION for Windows" --notes-file $notesFile --latest
+          gh release create $env:RELEASE_TAG $setupFile $setupChecksumFile $asset $checksumFile $manifestFile $readmeFile --repo $env:GH_REPO --verify-tag --title "Cathedra Faculty $env:RELEASE_VERSION — simple Windows setup" --notes-file $notesFile --latest
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed. Existing releases are never overwritten.' }

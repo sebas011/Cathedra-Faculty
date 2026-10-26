@@ -9,6 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
 $script:DataGuard = $null
 $script:GuardPath = $null
 $script:CreatedGuard = $false
@@ -154,7 +155,7 @@ function Verify-Payload([string]$Folder, [bool]$AllowData, [bool]$AllowLegacyIns
     if (-not $expected.ContainsKey($essential)) { throw "The application manifest is incomplete: $essential" }
   }
   $found = @{}
-  # These seven files were added outside the signed application payload in some
+  # These seven files were added outside the recorded application payload in some
   # real 0.3.2 office installations. Permit them only on the recognized legacy
   # installed tree; incoming packages and modern installations remain strict.
   $legacySidecars = @(
@@ -356,6 +357,7 @@ try {
     Write-Host 'Saving a private recovery copy of your current application and records...'
     $before = Tree-Snapshot $InstallFolder
     Copy-Tree $InstallFolder $backup
+    Write-Host 'Verifying your recovery copy...'
     Assert-SameTree $before $backup
     Assert-SameTree $before $InstallFolder
     Protect-Folder $backup
@@ -363,6 +365,7 @@ try {
     $oldApp = Join-Path $transaction 'old-app'
     [IO.Directory]::CreateDirectory($oldApp) | Out-Null
     $changedInstall = $true
+    Write-Host 'Installing the verified application...'
     # Windows cannot rename an ancestor of an open lock file. Keep data rooted
     # and locked throughout replacement; retire only the verified app items.
     foreach ($item in @(Get-ChildItem -LiteralPath $InstallFolder -Force)) {
@@ -383,6 +386,7 @@ try {
   }
   Test-Failure 'after-promotion'
   Verify-Payload $InstallFolder $true | Out-Null
+  Write-Host 'Checking your saved records...'
   if ($hadData) { Assert-SameTree $originalData (Join-Path $InstallFolder 'data') }
   Protect-Folder $InstallFolder
   $succeeded = $true

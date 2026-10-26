@@ -1,46 +1,46 @@
-CATHEDRA FACULTY - WINDOWS OFFICE COPY
+CATHEDRA FACULTY - INSTALL OR UPDATE
 
-1. Download the Windows office ZIP from the Cathedra Faculty GitHub Releases
-   page: https://github.com/sebas011/Cathedra-Faculty/releases
-   Choose the office ZIP release asset, not GitHub's Source code ZIP.
-2. Right-click the downloaded ZIP and choose Extract All. Open the extracted
-   folder. Keep its files and the Cathedra Faculty folder together.
-3. Close Cathedra using Exit Cathedra before updating. Double-click
-   Install-or-Update.cmd. Use your normal Windows account; no administrator
-   account, Python, or Node is required.
-4. Cathedra opens when installation finishes. On a new office computer, create
-   the administrator account in the setup screen. Later, open the Cathedra
-   Faculty desktop shortcut.
+1. Save your work in Cathedra, then choose Exit Cathedra.
+2. Download Cathedra-Faculty-Setup.exe:
+   https://github.com/sebas011/Cathedra-Faculty/releases/latest/download/Cathedra-Faculty-Setup.exe
+3. Open the downloaded file and choose Update Cathedra.
+   On a new computer, choose Install Cathedra instead.
 
-The application installs in your Windows user folder under Cathedra-Faculty.
-For example: C:\Users\YourName\Cathedra-Faculty\Cathedra Faculty.exe
+Setup checks and extracts the package for you. For an update, it creates and
+verifies a private recovery copy before replacing application files. Your
+existing records, accounts and settings stay in the data folder. Keep setup
+open until it says Cathedra is ready; a large office may take a few minutes.
+Cathedra opens automatically. Later, use the Cathedra Faculty desktop shortcut.
 
-UPDATING THE SAME COMPUTER
-The corrected v0.3.5-office.2 installer supports the original 0.3.2 manifest,
-which legitimately has no build_identity, source_snapshot_sha256 or BUILD_ID.
-It verifies every old file before accepting that installed-only legacy format.
-Do not edit the old manifest or replace a single script in an older ZIP.
-Read the official migration guide:
-https://github.com/sebas011/Cathedra-Faculty/blob/main/docs/UPGRADE_FROM_032.md
+Use your usual Windows account. ZIP extraction, administrator rights, Python
+and Node.js are not required.
 
-Download and extract the new office ZIP, close Cathedra, and run the same
-installer. Existing records, settings, passwords, and the data folder are
-preserved. The installer checks every application file and saves a verified,
-private copy of the old application and records beside your installed folder
-before replacement. Keep the backup folder; its location is shown on screen.
-If an existing installation is newer, incomplete, changed, or still in use,
-installation stops with a message. Do not delete your old data to work around
-an error. A failed application replacement restores the previous application.
-The first app startup upgrades the existing database. If returning to 0.3.2
-after that startup, restore the matching old application AND data from the
-private recovery copy; preserve newer work separately first.
+IF CATHEDRA IS STILL OPEN
+Save any open work and choose Exit Cathedra in every Cathedra window. Return
+to setup and choose Try again. Setup does not force-close your open work.
 
-MOVING OFFICE RECORDS TO ANOTHER COMPUTER
-This public download contains no office records or saved passwords. Installing
-on another computer starts an empty office. Use Cathedra's private backup and
-restore procedure to transfer records; keep those backups off public GitHub.
-Never replace an existing data folder with the clean installation seed.
+UPDATING AN ORIGINAL 0.3.2 COPY
+The corrected installer recognizes seven known extra files from the original
+0.3.2 installation. They are included in the private recovery copy and kept
+separate from the new app. You do not need to move or delete these files.
+If another verification error appears, keep the installation and records in
+place and share the setup message with your office support person.
 
-Keep your data and recovery folders private. Use the same Windows account
-for installation and daily use. The installer does not download updates
-automatically. Download each new office release when you are ready to update.
+RECOVERY
+Keep the private recovery folder shown by setup. If application replacement
+fails, the installer attempts to restore and verify the previous app. If it
+reports a recovery problem, keep all named folders and request support before
+opening Cathedra. Returning to an older version requires the matching old app
+and old database together; preserve any newer office work separately first.
+
+INSTALLING ON A DIFFERENT COMPUTER
+A new installation starts empty. Transfer existing records privately through
+Cathedra's Backup & Export page. Computers do not synchronize automatically.
+Keep databases, account details, Google keys and recovery copies private.
+
+OPTIONAL ZIP DOWNLOAD
+The Windows ZIP remains available on the GitHub release page. If you choose
+it, extract all files together and run Install-or-Update.cmd from that folder.
+For normal office updates, use Cathedra-Faculty-Setup.exe above.
+
+Setup is currently unsigned, so Windows may display a publisher warning.
