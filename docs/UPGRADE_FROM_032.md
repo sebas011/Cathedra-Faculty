@@ -1,9 +1,8 @@
-# Update Cathedra Faculty 0.3.2 to 0.3.5
+# Update Cathedra Faculty 0.3.2
 
-Use the corrected **v0.3.5-office.2** Windows release or a later release that
-includes the legacy migration fix. The first `v0.3.5-office.1` installer rejects
-the authentic 0.3.2 manifest before starting its backup. A matching ZIP checksum
-does not fix that installer compatibility issue.
+Use an official Windows office release that includes the legacy migration fix.
+Older installers may reject authentic 0.3.2 installations before starting their
+backup. A matching ZIP checksum does not fix an installer compatibility issue.
 
 ## Why the old update stopped
 
@@ -14,8 +13,14 @@ are legitimate for that release. Do not edit the manifest or invent values.
 
 The corrected installer recognizes only that installed 0.3.2 format. It still
 checks every listed file, rejects unsafe paths and unexpected/missing application
-files, and checks the product and backend/frontend version markers. The incoming
-download must pass the complete current manifest and checksum checks.
+files, and checks the product and backend/frontend version markers. Some real
+0.3.2 installations also contain seven known sidecar files outside the recorded
+payload: `OFFICE-UPDATE-VALIDATION.json`, `START HERE - OFFICE SETUP.txt`,
+`TRANSFER-VALIDATION.json`, and four design-reference files under `docs/`.
+Only those exact paths are tolerated in a recognized installed 0.3.2 tree. They
+are included in the complete recovery copy but not promoted into the new release.
+Arbitrary unlisted files remain rejected. The incoming download must pass the
+complete current manifest and checksum checks.
 
 ## Step-by-step upgrade
 
@@ -24,11 +29,10 @@ download must pass the complete current manifest and checksum checks.
 2. Keep `Cathedra-Faculty` in its existing Windows user folder. As an extra
    recovery copy, copy the complete old installation to a separate private folder
    while the app is closed. Confirm the copy contains `data/cathedra.db`.
-3. Download the Windows ZIP under **Assets** on the
-   [corrected release page](https://github.com/sebas011/Cathedra-Faculty/releases/tag/v0.3.5-office.2).
-   Use **Cathedra-Faculty-0.3.5-Windows-x64.zip**, not GitHub's Source code ZIP.
-   The corrected release has a new checksum and build identity; compare against
-   the checksum supplied on that same release.
+3. Download the Windows ZIP under **Assets** on the official release page for
+   the version you intend to install. Choose the named Windows x64 office ZIP,
+   not GitHub's Source code ZIP. Compare its checksum and build identity against
+   the values supplied with that same release.
 4. Choose **Extract All** into a new folder, separate from the installed app and
    any previously extracted office.1 download. Keep every extracted file together.
 5. From the newly extracted folder, double-click **Install-or-Update.cmd** as
@@ -39,7 +43,7 @@ download must pass the complete current manifest and checksum checks.
    its recorded application files, locks the data folder, and creates a private
    recovery copy of the **complete old application and data** before replacement.
    It verifies that copy and keeps the old manifest unchanged inside it.
-7. Wait for **Cathedra Faculty 0.3.5 is ready**. Keep the recovery folder shown
+7. Wait for the installer to report that the version you downloaded is ready (for this upgrade, **Cathedra Faculty 0.3.6**). Keep the recovery folder shown
    on screen. The installer leaves the existing `data` folder in place and
    checks its contents against the original file hashes.
 8. The app opens and upgrades its existing database schema on first startup.
