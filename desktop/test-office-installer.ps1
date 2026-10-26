@@ -261,6 +261,20 @@ try {
   $legacyManifestBytes = [IO.File]::ReadAllBytes($installedManifestPath)
   $legacyVersionBytes = [IO.File]::ReadAllBytes($installedVersionPath)
   $legacyFrontendBytes = [IO.File]::ReadAllBytes($installedFrontendPath)
+  $legacySidecars = @(
+    'OFFICE-UPDATE-VALIDATION.json',
+    'START HERE - OFFICE SETUP.txt',
+    'TRANSFER-VALIDATION.json',
+    'docs/FACULTY_DESIGN_SYSTEM.md',
+    'docs/redesign-dashboard.jpg',
+    'docs/redesign-settings.jpg',
+    'docs/redesign-sign-in.jpg'
+  )
+  foreach ($sidecar in $legacySidecars) {
+    $sidecarPath = Join-Path $install $sidecar
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $sidecarPath)) | Out-Null
+    [IO.File]::WriteAllText($sidecarPath, "Synthetic legacy sidecar fixture: $sidecar")
+  }
   $legacyTree = Test-TreeSnapshot $install
   $legacyDataTree = Test-TreeSnapshot (Join-Path $install 'data')
 
@@ -347,9 +361,15 @@ try {
   }
 
   $previousBackups = @(Get-TestBackups | ForEach-Object { $_.FullName })
-  Invoke-Installer $true '0.3.2 upgrade preserves SQLite records, attachments, empty directories and complete private recovery copy'
+  Invoke-Installer $true '0.3.2 upgrade preserves records and backs up known legacy sidecars without mixing them into the new release'
   Assert-TestTree $legacyDataTree (Join-Path $install 'data')
   Assert-NewCompleteBackup $previousBackups $legacyTree
+  $newBackups = @(Get-TestBackups | Where-Object { $_.FullName -notin $previousBackups })
+  if ($newBackups.Count -ne 1) { throw 'The sidecar migration did not create exactly one verified recovery copy.' }
+  foreach ($sidecar in $legacySidecars) {
+    if (-not (Test-Path -LiteralPath (Join-Path $newBackups[0].FullName $sidecar) -PathType Leaf)) { throw "Legacy sidecar was not preserved in the recovery copy: $sidecar" }
+    if (Test-Path -LiteralPath (Join-Path $install $sidecar)) { throw "Legacy sidecar was incorrectly promoted into the new application: $sidecar" }
+  }
   if ((Get-FileHash -LiteralPath $installedManifestPath -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $payloadManifestPath -Algorithm SHA256).Hash) { throw 'The legacy upgrade did not promote the new release manifest.' }
   if (Test-Path -LiteralPath (Join-Path $install 'docs/legacy-release-notes.txt')) { throw 'The old application document was left mixed into the new release.' }
