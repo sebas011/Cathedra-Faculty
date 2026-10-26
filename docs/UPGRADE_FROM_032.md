@@ -43,7 +43,7 @@ complete current manifest and checksum checks.
    its recorded application files, locks the data folder, and creates a private
    recovery copy of the **complete old application and data** before replacement.
    It verifies that copy and keeps the old manifest unchanged inside it.
-7. Wait for **Cathedra Faculty 0.3.5 is ready**. Keep the recovery folder shown
+7. Wait for the installer to report that the version you downloaded is ready (for this upgrade, **Cathedra Faculty 0.3.6**). Keep the recovery folder shown
    on screen. The installer leaves the existing `data` folder in place and
    checks its contents against the original file hashes.
 8. The app opens and upgrades its existing database schema on first startup.
