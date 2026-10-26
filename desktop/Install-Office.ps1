@@ -154,6 +154,18 @@ function Verify-Payload([string]$Folder, [bool]$AllowData, [bool]$AllowLegacyIns
     if (-not $expected.ContainsKey($essential)) { throw "The application manifest is incomplete: $essential" }
   }
   $found = @{}
+  # These seven files were added outside the signed application payload in some
+  # real 0.3.2 office installations. Permit them only on the recognized legacy
+  # installed tree; incoming packages and modern installations remain strict.
+  $legacySidecars = @(
+    'OFFICE-UPDATE-VALIDATION.json',
+    'START HERE - OFFICE SETUP.txt',
+    'TRANSFER-VALIDATION.json',
+    'docs/FACULTY_DESIGN_SYSTEM.md',
+    'docs/redesign-dashboard.jpg',
+    'docs/redesign-settings.jpg',
+    'docs/redesign-sign-in.jpg'
+  )
   foreach ($item in @(Get-SafeItems $Folder)) {
     $relative = Relative-Path $item.FullName $Folder
     if ($relative -match '^(?i:data)(/|$)') {
@@ -162,7 +174,10 @@ function Verify-Payload([string]$Folder, [bool]$AllowData, [bool]$AllowLegacyIns
     }
     if ($item.PSIsContainer) { continue }
     if ($relative -eq 'release-manifest.json') { continue }
-    if (-not $expected.ContainsKey($relative) -or $found.ContainsKey($relative)) { throw "Unexpected application file: $relative" }
+    if (-not $expected.ContainsKey($relative) -or $found.ContainsKey($relative)) {
+      if ($legacy -and -not $expected.ContainsKey($relative) -and $relative -cin $legacySidecars) { continue }
+      throw "Unexpected application file: $relative"
+    }
     $entry = $expected[$relative]
     if ($item.Length -ne $entry.bytes -or (File-Digest $item.FullName) -ne $entry.sha256) { throw "Application checksum failed: $relative" }
     $found[$relative] = $true
